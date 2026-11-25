@@ -1,10 +1,14 @@
 package com.example.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.AnatomyCatalog
 import com.example.data.CalibrationRepository
+import com.example.data.GlbImportResult
+import com.example.data.GlbModelRepository
+import com.example.data.InstalledGlbModel
 import com.example.model.AnatomyPart
 import com.example.model.AnatomySystem
 import com.example.model.BodyCalibration
@@ -65,6 +69,10 @@ data class XRayUiState(
     val totalPartsCount: Int = AnatomyCatalog.parts.size,
     val showFilament3d: Boolean = false,
     val liveBodyYawDeg: Float = 0f,
+    val installedGlbModels: List<InstalledGlbModel> = emptyList(),
+    val selectedGlbId: String? = null,
+    val showAttributions: Boolean = false,
+    val glbImporting: Boolean = false,
 )
 
 class XRayViewModel(application: Application) : AndroidViewModel(application) {
@@ -90,6 +98,68 @@ class XRayViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.update { it.copy(calibration = savedCal) }
             }
         }
+        refreshInstalledGlbModels()
+    }
+
+    fun refreshInstalledGlbModels() {
+        viewModelScope.launch {
+            val models = GlbModelRepository.listInstalledModels(getApplication())
+            _uiState.update { state ->
+                val keepSelected = state.selectedGlbId?.takeIf { id -> models.any { it.id == id } }
+                state.copy(
+                    installedGlbModels = models,
+                    selectedGlbId = keepSelected,
+                )
+            }
+        }
+    }
+
+    fun importGlbUri(uri: Uri) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(glbImporting = true) }
+            when (val res = GlbModelRepository.importGlbFromUri(getApplication(), uri)) {
+                is GlbImportResult.Success -> {
+                    val models = GlbModelRepository.listInstalledModels(getApplication())
+                    _uiState.update {
+                        it.copy(
+                            glbImporting = false,
+                            installedGlbModels = models,
+                            selectedGlbId = res.model.id,
+                            showFilament3d = true,
+                            showAttributions = false,
+                        )
+                    }
+                    showToast("تم حفظ النموذج محليًا للعمل دون إنترنت: ${res.model.displayName}")
+                }
+                is GlbImportResult.Error -> {
+                    _uiState.update { it.copy(glbImporting = false) }
+                    showToast(res.message)
+                }
+            }
+        }
+    }
+
+    fun selectGlbModel(id: String?) {
+        _uiState.update { it.copy(selectedGlbId = id) }
+    }
+
+    fun deleteGlbModel(model: InstalledGlbModel) {
+        viewModelScope.launch {
+            if (GlbModelRepository.deleteImportedModel(model)) {
+                val models = GlbModelRepository.listInstalledModels(getApplication())
+                _uiState.update { state ->
+                    state.copy(
+                        installedGlbModels = models,
+                        selectedGlbId = if (state.selectedGlbId == model.id) null else state.selectedGlbId,
+                    )
+                }
+                showToast("تم حذف النموذج المحلي: ${model.displayName}")
+            }
+        }
+    }
+
+    fun setShowAttributions(show: Boolean) {
+        _uiState.update { it.copy(showAttributions = show) }
     }
 
     fun onStartClicked() {

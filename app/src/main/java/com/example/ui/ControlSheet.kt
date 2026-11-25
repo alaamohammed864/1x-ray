@@ -35,7 +35,9 @@ import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCut
 import androidx.compose.material.icons.rounded.FiberManualRecord
+import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Flip
+import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Label
@@ -120,6 +122,8 @@ fun ControlSheet(
     onCycleStageAspect: () -> Unit,
     onToggleFlipYaw: () -> Unit,
     onToggleFilament3d: () -> Unit,
+    onImportGlb: () -> Unit,
+    onShowAttributions: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -304,6 +308,36 @@ fun ControlSheet(
                                     )
                                 }
                             }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            val glbLabel = if (state.installedGlbModels.isEmpty()) {
+                                "استيراد GLB"
+                            } else {
+                                "GLB (${state.installedGlbModels.size})"
+                            }
+                            GridActionTile(
+                                item = GridToolItem(
+                                    label = glbLabel,
+                                    icon = Icons.Rounded.FileUpload,
+                                    active = state.installedGlbModels.isNotEmpty(),
+                                    testTag = "import_glb_button",
+                                    onClick = onImportGlb,
+                                ),
+                                modifier = Modifier.weight(1f),
+                            )
+                            GridActionTile(
+                                item = GridToolItem(
+                                    label = "حقوق ونسب",
+                                    icon = Icons.Rounded.Gavel,
+                                    active = state.showAttributions,
+                                    testTag = "attributions_button",
+                                    onClick = onShowAttributions,
+                                ),
+                                modifier = Modifier.weight(1f),
+                            )
                         }
                     }
 

@@ -3,6 +3,8 @@ package com.example.ui
 import android.app.Activity
 import android.graphics.Bitmap
 import android.view.WindowManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
@@ -101,6 +103,16 @@ fun XRayMirrorScreen(
         }
     }
     val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
+    val glbPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importGlbUri(uri)
+        }
+    }
+    val launchGlbPicker = {
+        glbPickerLauncher.launch(arrayOf("*/*"))
+    }
 
     var previewViewRef by remember { mutableStateOf<PreviewView?>(null) }
     var stageSize by remember { mutableStateOf(IntSize.Zero) }
@@ -595,6 +607,8 @@ fun XRayMirrorScreen(
             onCycleStageAspect = viewModel::cycleStageAspect,
             onToggleFlipYaw = viewModel::toggleFlipYaw,
             onToggleFilament3d = viewModel::toggleFilament3d,
+            onImportGlb = launchGlbPicker,
+            onShowAttributions = { viewModel.setShowAttributions(true) },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
 
@@ -604,10 +618,24 @@ fun XRayMirrorScreen(
                 look = state.look,
                 trackingFrame = trackingFrame,
                 isFrontCamera = state.isFrontCamera,
+                installedModels = state.installedGlbModels,
+                selectedGlbId = state.selectedGlbId,
+                onSelectGlbId = viewModel::selectGlbModel,
+                onDeleteGlbModel = viewModel::deleteGlbModel,
+                onImportGlb = launchGlbPicker,
+                onShowAttributions = { viewModel.setShowAttributions(true) },
                 onSelectSystem = viewModel::setSystem,
                 onSelectLook = viewModel::setLook,
                 onClose = viewModel::toggleFilament3d,
                 modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        if (state.showAttributions) {
+            AttributionsDialog(
+                installedModels = state.installedGlbModels,
+                onImportGlb = launchGlbPicker,
+                onDismiss = { viewModel.setShowAttributions(false) },
             )
         }
     }

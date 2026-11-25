@@ -1,5 +1,6 @@
 package com.example.render
 
+import android.content.Context
 import android.opengl.Matrix
 import android.view.Choreographer
 import android.view.Surface
@@ -7,31 +8,44 @@ import android.view.SurfaceView
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.Gavel
+import androidx.compose.material.icons.rounded.Label
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.ViewInAr
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,13 +56,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.data.GlbModelRepository
+import com.example.data.GlbNodeLabelMapper
+import com.example.data.GlbSourceType
+import com.example.data.InstalledGlbModel
+import com.example.data.MappedGlbNode
 import com.example.model.AnatomySystem
 import com.example.model.TrackingFrame
 import com.example.model.VisualLook
+import com.example.ui.theme.AlertRed
 import com.example.ui.theme.CyanLight
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.DarkOnCyan
@@ -75,14 +97,20 @@ import com.google.android.filament.View
 import com.google.android.filament.Viewport
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.UiHelper
+import com.google.android.filament.gltfio.AssetLoader
+import com.google.android.filament.gltfio.FilamentAsset
 import com.google.android.filament.gltfio.Gltfio
 import com.google.android.filament.gltfio.MaterialProvider
+import com.google.android.filament.gltfio.ResourceLoader
 import com.google.android.filament.gltfio.UbershaderProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.max
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -92,8 +120,8 @@ private data class MeshPart(
     val indexBuffer: IndexBuffer,
     val material: MaterialInstance,
     val category: AnatomySystem,
-    val parentType: Int, // 0=torso, 1=head, 2=world(limb)
-    val baseLocalMatrix: FloatArray? = null,
+    val parentType: Int, // 0=torso, 1=head
+    val basePos: FloatArray,
     val isHeart: Boolean = false,
 )
 
@@ -117,25 +145,86 @@ private data class JointSphereMesh(
     val jointPos: (ArticulatedPose3d) -> Vec3,
 )
 
+private data class GlbNodeTransformBackup(
+    val entity: Int,
+    val baseMatrix: FloatArray,
+    val explodeOffset: FloatArray,
+    val system: AnatomySystem,
+    val mappedName: String?,
+)
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun FilamentAnatomyOverlay(
     system: AnatomySystem,
     look: VisualLook,
     trackingFrame: TrackingFrame,
     isFrontCamera: Boolean,
+    installedModels: List<InstalledGlbModel>,
+    selectedGlbId: String?,
+    onSelectGlbId: (String?) -> Unit,
+    onDeleteGlbModel: (InstalledGlbModel) -> Unit,
+    onImportGlb: () -> Unit,
+    onShowAttributions: () -> Unit,
     onSelectSystem: (AnatomySystem) -> Unit,
     onSelectLook: (VisualLook) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     var orbitYaw by remember { mutableFloatStateOf(0f) }
     var orbitPitch by remember { mutableFloatStateOf(4f) }
+    var orbitZoom by remember { mutableFloatStateOf(3.15f) }
+    var explodeFactor by remember { mutableFloatStateOf(0f) }
+    var showGlbLabelsPanel by remember { mutableStateOf(false) }
+    var hiddenGlbEntities by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var mappedGlbNodes by remember { mutableStateOf<List<MappedGlbNode>>(emptyList()) }
+    var glbLoading by remember { mutableStateOf(false) }
+    var glbLoadStatus by remember { mutableStateOf<String?>(null) }
     var engineError by remember { mutableStateOf<String?>(null) }
+
+    val selectedModel = remember(installedModels, selectedGlbId) {
+        installedModels.firstOrNull { it.id == selectedGlbId }
+    }
 
     val controller = remember {
         FilamentSceneController(
-            onError = { msg -> engineError = msg }
+            onError = { msg -> engineError = msg },
+            onGlbNodesDiscovered = { nodes ->
+                mappedGlbNodes = nodes
+                hiddenGlbEntities = emptySet()
+            },
         )
+    }
+
+    // Async GLB loader off main thread (zero UI freeze)
+    LaunchedEffect(selectedModel) {
+        if (selectedModel == null) {
+            controller.clearGlbAsset()
+            mappedGlbNodes = emptyList()
+            hiddenGlbEntities = emptySet()
+            glbLoading = false
+            glbLoadStatus = null
+        } else {
+            glbLoading = true
+            glbLoadStatus = "جارٍ تحميل ${selectedModel.displayName}…"
+            val bytes = withContext(Dispatchers.IO) {
+                GlbModelRepository.loadModelBytes(context, selectedModel)
+            }
+            if (bytes == null) {
+                glbLoading = false
+                glbLoadStatus = "تعذّر قراءة ملف GLB من التخزين المحلي."
+                controller.clearGlbAsset()
+            } else {
+                val ok = controller.loadGlbBytes(bytes)
+                glbLoading = false
+                glbLoadStatus = if (ok) {
+                    "${selectedModel.displayName} (${selectedModel.formattedSize})"
+                } else {
+                    "ملف GLB غير صالح أو تعذّر فكه في Filament."
+                }
+            }
+        }
     }
 
     controller.updateParams(
@@ -145,6 +234,9 @@ fun FilamentAnatomyOverlay(
         isFrontCamera = isFrontCamera,
         orbitYawDeg = orbitYaw,
         orbitPitchDeg = orbitPitch,
+        orbitDistance = orbitZoom,
+        explodeFactor = explodeFactor,
+        hiddenGlbEntities = hiddenGlbEntities,
     )
 
     DisposableEffect(Unit) {
@@ -170,10 +262,12 @@ fun FilamentAnatomyOverlay(
                     modifier = Modifier
                         .fillMaxSize()
                         .pointerInput(Unit) {
-                            detectDragGestures { change, dragAmount ->
-                                change.consume()
-                                orbitYaw += dragAmount.x * 0.45f
-                                orbitPitch = (orbitPitch + dragAmount.y * 0.35f).coerceIn(-55f, 55f)
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                orbitYaw += pan.x * 0.42f
+                                orbitPitch = (orbitPitch + pan.y * 0.34f).coerceIn(-60f, 60f)
+                                if (zoom != 1f) {
+                                    orbitZoom = (orbitZoom / zoom).coerceIn(1.2f, 6.0f)
+                                }
                             }
                         },
                 )
@@ -199,98 +293,296 @@ fun FilamentAnatomyOverlay(
                 }
             }
 
-            // Top Header with Live ML Kit Pose Sync Indicator
+            if (glbLoading) {
+                Surface(
+                    modifier = Modifier.align(Alignment.Center),
+                    shape = RoundedCornerShape(16.dp),
+                    color = SurfaceDark.copy(alpha = 0.94f),
+                    border = BorderStroke(1.dp, CyanPrimary),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        CircularProgressIndicator(
+                            color = CyanPrimary,
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.5.dp,
+                        )
+                        Text(
+                            text = glbLoadStatus ?: "جارٍ التحميل…",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White,
+                        )
+                    }
+                }
+            }
+
+            // Top Header
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.TopCenter)
                     .statusBarsPadding()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(16.dp),
-                color = SurfaceDark.copy(alpha = 0.9f),
+                color = SurfaceDark.copy(alpha = 0.92f),
                 border = BorderStroke(1.dp, CyanPrimary.copy(alpha = 0.55f)),
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.ViewInAr,
-                            contentDescription = null,
-                            tint = CyanLight,
-                            modifier = Modifier.size(24.dp),
-                        )
-                        Column {
-                            Text(
-                                text = "النموذج التشريحي 3D (ML Kit + Filament)",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.ViewInAr,
+                                contentDescription = null,
+                                tint = CyanLight,
+                                modifier = Modifier.size(22.dp),
                             )
-                            val syncText = if (trackingFrame.hasPose && trackingFrame.pose3d.size == 33) {
-                                "تتبع الحركة الفوري: نشط ✓ (${trackingFrame.fps} إطار/ث) · اسحب للتدوير"
-                            } else {
-                                "قف أمام الكاميرا لتحريك الهيكل 3D مباشرة · اسحب للتدوير"
+                            Column {
+                                Text(
+                                    text = if (selectedModel != null) {
+                                        "عارض GLB الطبي (Filament PBR)"
+                                    } else {
+                                        "التتبع التشريحي 3D (ML Kit + Filament)"
+                                    },
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                )
+                                val syncText = when {
+                                    selectedModel != null -> glbLoadStatus ?: selectedModel.displayName
+                                    installedModels.isEmpty() && trackingFrame.hasPose ->
+                                        "تتبع الكاميرا نشط ✓ (${trackingFrame.fps} إ/ث) · 0 ملفات GLB محلية"
+                                    trackingFrame.hasPose ->
+                                        "تتبع الكاميرا نشط ✓ (${trackingFrame.fps} إطار/ث) · اسحب وقرّب"
+                                    else ->
+                                        "قف أمام الكاميرا أو استورد ملف .glb طبي · اسحب وقرّب"
+                                }
+                                Text(
+                                    text = syncText,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (selectedModel != null || trackingFrame.hasPose) EmeraldOk else GoldHighlight,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                             }
-                            Text(
-                                text = syncText,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (trackingFrame.hasPose) EmeraldOk else GoldHighlight,
-                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (mappedGlbNodes.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { showGlbLabelsPanel = !showGlbLabelsPanel },
+                                    modifier = Modifier.testTag("toggle_glb_labels_button"),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Label,
+                                        contentDescription = "أجزاء النموذج",
+                                        tint = if (showGlbLabelsPanel) CyanPrimary else Color.White,
+                                    )
+                                }
+                            }
+                            IconButton(
+                                onClick = onShowAttributions,
+                                modifier = Modifier.testTag("attributions_3d_button"),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Gavel,
+                                    contentDescription = "حقوق ونسب",
+                                    tint = CyanLight,
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    orbitYaw = 0f
+                                    orbitPitch = 4f
+                                    orbitZoom = 3.15f
+                                    explodeFactor = 0f
+                                },
+                                modifier = Modifier.testTag("reset_3d_orbit_button"),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Refresh,
+                                    contentDescription = "إعادة الضبط",
+                                    tint = CyanLight,
+                                )
+                            }
+                            IconButton(
+                                onClick = onClose,
+                                modifier = Modifier.testTag("close_filament_3d_button"),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = "إغلاق العرض ثلاثي الأبعاد",
+                                    tint = Color.White,
+                                )
+                            }
                         }
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = {
-                                orbitYaw = 0f
-                                orbitPitch = 4f
-                            },
-                            modifier = Modifier.testTag("reset_3d_orbit_button"),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Refresh,
-                                contentDescription = "إعادة ضبط زاوية الكاميرا",
-                                tint = CyanLight,
-                            )
+                    // Model switcher chips (Live ML Kit Pose vs Local GLBs + Import)
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        ModelChip(
+                            label = "تتبع الكاميرا الحي",
+                            active = selectedGlbId == null,
+                            onClick = { onSelectGlbId(null) },
+                        )
+                        installedModels.forEach { mdl ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ModelChip(
+                                    label = mdl.displayName,
+                                    active = selectedGlbId == mdl.id,
+                                    onClick = { onSelectGlbId(mdl.id) },
+                                )
+                                if (mdl.sourceType == GlbSourceType.LOCAL_IMPORTED) {
+                                    IconButton(
+                                        onClick = { onDeleteGlbModel(mdl) },
+                                        modifier = Modifier.size(32.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Delete,
+                                            contentDescription = "حذف ${mdl.displayName}",
+                                            tint = AlertRed.copy(alpha = 0.85f),
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    }
+                                }
+                            }
                         }
-                        IconButton(
-                            onClick = onClose,
-                            modifier = Modifier.testTag("close_filament_3d_button"),
+                        Surface(
+                            modifier = Modifier
+                                .height(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable(onClick = onImportGlb)
+                                .testTag("import_glb_3d_chip"),
+                            shape = RoundedCornerShape(10.dp),
+                            color = SurfaceElevated,
+                            border = BorderStroke(1.dp, GoldHighlight.copy(alpha = 0.7f)),
                         ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Close,
-                                contentDescription = "إغلاق العرض ثلاثي الأبعاد",
-                                tint = Color.White,
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.FileUpload,
+                                    contentDescription = null,
+                                    tint = GoldHighlight,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Text(
+                                    text = "استيراد GLB",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = GoldHighlight,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                    }
+
+                    // Expandable GLB Node Inspector & Layer Toggle Panel (Arabic mapped labels)
+                    if (showGlbLabelsPanel && mappedGlbNodes.isNotEmpty()) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = SurfaceElevated.copy(alpha = 0.95f),
+                            border = BorderStroke(1.dp, CyanPrimary.copy(alpha = 0.4f)),
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 150.dp)
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text(
+                                    text = "أجزاء النموذج (${mappedGlbNodes.size}) — اضغط لإظهار أو إخفاء:",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = CyanLight,
+                                )
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    mappedGlbNodes.take(100).forEach { node ->
+                                        val isHidden = node.entity in hiddenGlbEntities
+                                        ModelChip(
+                                            label = node.arabicName,
+                                            active = !isHidden,
+                                            onClick = {
+                                                hiddenGlbEntities = if (isHidden) {
+                                                    hiddenGlbEntities - node.entity
+                                                } else {
+                                                    hiddenGlbEntities + node.entity
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            // Bottom Quick System & Look Switcher
+            // Bottom System, Look & Exploded View Controls
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 shape = RoundedCornerShape(16.dp),
                 color = SurfaceDark.copy(alpha = 0.92f),
                 border = BorderStroke(1.dp, CyanPrimary.copy(alpha = 0.45f)),
             ) {
                 Column(
                     modifier = Modifier.padding(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "تفكيك الطبقات",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextSecondary,
+                        )
+                        Slider(
+                            value = explodeFactor,
+                            onValueChange = { explodeFactor = it },
+                            valueRange = 0f..1f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = CyanPrimary,
+                                activeTrackColor = CyanPrimary,
+                                inactiveTrackColor = CyanPrimary.copy(alpha = 0.25f),
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(28.dp)
+                                .testTag("explode_3d_slider"),
+                        )
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -301,7 +593,7 @@ fun FilamentAnatomyOverlay(
                                 modifier = Modifier
                                     .weight(1f)
                                     .minimumInteractiveComponentSize()
-                                    .height(44.dp)
+                                    .height(42.dp)
                                     .clip(RoundedCornerShape(10.dp))
                                     .clickable { onSelectSystem(sys) },
                                 shape = RoundedCornerShape(10.dp),
@@ -320,6 +612,7 @@ fun FilamentAnatomyOverlay(
                             }
                         }
                     }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -330,7 +623,7 @@ fun FilamentAnatomyOverlay(
                                 modifier = Modifier
                                     .weight(1f)
                                     .minimumInteractiveComponentSize()
-                                    .height(44.dp)
+                                    .height(42.dp)
                                     .clip(RoundedCornerShape(10.dp))
                                     .clickable { onSelectLook(lk) },
                                 shape = RoundedCornerShape(10.dp),
@@ -355,8 +648,40 @@ fun FilamentAnatomyOverlay(
     }
 }
 
+@Composable
+private fun ModelChip(
+    label: String,
+    active: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .height(36.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(10.dp),
+        color = if (active) CyanPrimary else SurfaceElevated,
+        border = BorderStroke(1.dp, if (active) CyanLight else CyanPrimary.copy(alpha = 0.4f)),
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 10.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (active) DarkOnCyan else Color.White,
+                fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
 private class FilamentSceneController(
     private val onError: (String) -> Unit,
+    private val onGlbNodesDiscovered: (List<MappedGlbNode>) -> Unit,
 ) {
     private var engine: Engine? = null
     private var renderer: Renderer? = null
@@ -367,9 +692,20 @@ private class FilamentSceneController(
     private var uiHelper: UiHelper? = null
     private var displayHelper: DisplayHelper? = null
     private var materialProvider: UbershaderProvider? = null
+    private var assetLoader: AssetLoader? = null
+    private var resourceLoader: ResourceLoader? = null
+
     private var torsoRootEntity: Int = 0
     private var headRootEntity: Int = 0
     private var lightEntity: Int = 0
+    private var fillLightEntity: Int = 0
+
+    // Loaded external/local GLB asset
+    private var loadedGlbAsset: FilamentAsset? = null
+    private var glbNodes: List<GlbNodeTransformBackup> = emptyList()
+    private var glbRootBaseScale: Float = 1f
+    private var glbRootCenterOffset: FloatArray = floatArrayOf(0f, 0f, 0f)
+    private var glbAnimTimeStartNs: Long = 0L
 
     private val parts = mutableListOf<MeshPart>()
     private val limbSegments = mutableListOf<LimbSegmentMesh>()
@@ -387,6 +723,12 @@ private class FilamentSceneController(
     private var targetOrbitYawDeg = 0f
     @Volatile
     private var targetOrbitPitchDeg = 4f
+    @Volatile
+    private var targetOrbitDistance = 3.15f
+    @Volatile
+    private var targetExplodeFactor = 0f
+    @Volatile
+    private var targetHiddenGlbEntities: Set<Int> = emptySet()
     @Volatile
     private var destroyed = false
 
@@ -408,6 +750,9 @@ private class FilamentSceneController(
         isFrontCamera: Boolean,
         orbitYawDeg: Float,
         orbitPitchDeg: Float,
+        orbitDistance: Float,
+        explodeFactor: Float,
+        hiddenGlbEntities: Set<Int>,
     ) {
         targetSystem = system
         targetLook = look
@@ -415,9 +760,122 @@ private class FilamentSceneController(
         targetFrontCamera = isFrontCamera
         targetOrbitYawDeg = orbitYawDeg
         targetOrbitPitchDeg = orbitPitchDeg
+        targetOrbitDistance = orbitDistance
+        targetExplodeFactor = explodeFactor
+        targetHiddenGlbEntities = hiddenGlbEntities
     }
 
-    fun attachSurfaceView(surfaceView: SurfaceView, context: android.content.Context) {
+    fun clearGlbAsset() {
+        val eng = engine ?: return
+        val sc = scene ?: return
+        val asset = loadedGlbAsset ?: return
+        loadedGlbAsset = null
+        glbNodes = emptyList()
+        runCatching {
+            sc.removeEntities(asset.entities)
+            assetLoader?.destroyAsset(asset)
+        }
+        setProceduralLiveVisible(eng, true)
+    }
+
+    fun loadGlbBytes(bytes: ByteArray): Boolean {
+        val eng = engine ?: return false
+        val sc = scene ?: return false
+        val loader = assetLoader ?: return false
+        val resLoader = resourceLoader ?: return false
+
+        clearGlbAsset()
+
+        val buf = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder())
+        buf.put(bytes)
+        buf.flip()
+
+        val asset = runCatching { loader.createAsset(buf) }.getOrNull() ?: return false
+        return try {
+            resLoader.loadResources(asset)
+            asset.releaseSourceData()
+            sc.addEntities(asset.entities)
+
+            val bbox = asset.boundingBox
+            val cx = bbox.center[0]
+            val cy = bbox.center[1]
+            val cz = bbox.center[2]
+            val maxExtent = max(bbox.halfExtent[0], max(bbox.halfExtent[1], bbox.halfExtent[2])).coerceAtLeast(1e-4f)
+            glbRootBaseScale = 0.92f / maxExtent
+            glbRootCenterOffset = floatArrayOf(-cx, -cy, -cz)
+
+            val tm = eng.transformManager
+            val rm = eng.renderableManager
+            val backups = mutableListOf<GlbNodeTransformBackup>()
+            val mappedList = mutableListOf<MappedGlbNode>()
+            val rootInst = tm.getInstance(asset.root)
+
+            for (entity in asset.entities) {
+                if (entity == asset.root) continue
+                val name = asset.getName(entity)
+                val mapped = GlbNodeLabelMapper.mapNode(entity, name)
+                if (mapped != null) mappedList.add(mapped)
+                val inst = tm.getInstance(entity)
+                if (inst != 0) {
+                    val m = FloatArray(16)
+                    tm.getTransform(inst, m)
+                    val ri = rm.getInstance(entity)
+                    val isDirectChildOfRoot = tm.getParent(inst) == rootInst
+                    val expOffset = if (ri != 0 && isDirectChildOfRoot) {
+                        val aabb = FilamentBox()
+                        rm.getAxisAlignedBoundingBox(ri, aabb)
+                        val worldM = FloatArray(16)
+                        tm.getWorldTransform(inst, worldM)
+                        val wx = worldM[0] * aabb.center[0] + worldM[4] * aabb.center[1] + worldM[8] * aabb.center[2] + worldM[12]
+                        val wy = worldM[1] * aabb.center[0] + worldM[5] * aabb.center[1] + worldM[9] * aabb.center[2] + worldM[13]
+                        val wz = worldM[2] * aabb.center[0] + worldM[6] * aabb.center[1] + worldM[10] * aabb.center[2] + worldM[14]
+                        floatArrayOf((wx - cx) * 0.65f, (wy - cy) * 0.45f, (wz - cz) * 0.65f)
+                    } else {
+                        floatArrayOf(0f, 0f, 0f)
+                    }
+                    backups.add(
+                        GlbNodeTransformBackup(
+                            entity = entity,
+                            baseMatrix = m,
+                            explodeOffset = expOffset,
+                            system = mapped?.system ?: AnatomySystem.ALL,
+                            mappedName = mapped?.arabicName,
+                        )
+                    )
+                }
+            }
+
+            loadedGlbAsset = asset
+            glbNodes = backups
+            glbAnimTimeStartNs = 0L
+            setProceduralLiveVisible(eng, false)
+            onGlbNodesDiscovered(mappedList.distinctBy { it.rawName })
+            true
+        } catch (_: Throwable) {
+            runCatching { loader.destroyAsset(asset) }
+            setProceduralLiveVisible(eng, true)
+            false
+        }
+    }
+
+    private fun setProceduralLiveVisible(eng: Engine, visible: Boolean) {
+        val rm = eng.renderableManager
+        val mask = if (visible) 0xFF else 0x00
+        for (p in parts) {
+            val ri = rm.getInstance(p.entity)
+            if (ri != 0) rm.setLayerMask(ri, 0xFF, mask)
+        }
+        for (seg in limbSegments) {
+            val ri = rm.getInstance(seg.entity)
+            if (ri != 0) rm.setLayerMask(ri, 0xFF, mask)
+        }
+        for (js in jointSpheres) {
+            val ri = rm.getInstance(js.entity)
+            if (ri != 0) rm.setLayerMask(ri, 0xFF, mask)
+        }
+    }
+
+    fun attachSurfaceView(surfaceView: SurfaceView, context: Context) {
         try {
             Filament.init()
             Gltfio.init()
@@ -434,7 +892,10 @@ private class FilamentSceneController(
             view = eng.createView()
             val camEntity = EntityManager.get().create()
             camera = eng.createCamera(camEntity)
-            materialProvider = UbershaderProvider(eng)
+            val matProv = UbershaderProvider(eng)
+            materialProvider = matProv
+            assetLoader = AssetLoader(eng, matProv, EntityManager.get())
+            resourceLoader = ResourceLoader(eng, true)
 
             view?.apply {
                 scene = this@FilamentSceneController.scene
@@ -470,7 +931,7 @@ private class FilamentSceneController(
                     val v = view ?: return
                     v.viewport = Viewport(0, 0, width, height)
                     val aspect = width.toDouble() / height.coerceAtLeast(1).toDouble()
-                    camera?.setProjection(48.0, aspect, 0.1, 20.0, Camera.Fov.VERTICAL)
+                    camera?.setProjection(48.0, aspect, 0.1, 25.0, Camera.Fov.VERTICAL)
                 }
             }
             helper.attachTo(surfaceView)
@@ -486,11 +947,19 @@ private class FilamentSceneController(
 
         lightEntity = em.create()
         LightManager.Builder(LightManager.Type.DIRECTIONAL)
-            .color(0.95f, 0.98f, 1.0f)
+            .color(0.96f, 0.98f, 1.0f)
             .intensity(98_000f)
             .direction(-0.35f, -0.55f, -0.75f)
             .build(eng, lightEntity)
         sc.addEntity(lightEntity)
+
+        fillLightEntity = em.create()
+        LightManager.Builder(LightManager.Type.DIRECTIONAL)
+            .color(0.55f, 0.85f, 1.0f)
+            .intensity(42_000f)
+            .direction(0.55f, 0.35f, 0.70f)
+            .build(eng, fillLightEntity)
+        sc.addEntity(fillLightEntity)
 
         torsoRootEntity = em.create()
         eng.transformManager.create(torsoRootEntity)
@@ -506,23 +975,20 @@ private class FilamentSceneController(
         val organStomachColor = floatArrayOf(0.88f, 0.58f, 0.42f, 1.0f)
         val muscleColor = floatArrayOf(0.75f, 0.16f, 0.16f, 1.0f)
 
-        // Head Root Children (Skull & Mandible in head-local coordinates)
+        // Head Root Children
         addPart(eng, sc, parentType = 1, 0f, 0.03f, 0f, 0.13f, 0.17f, 0.15f, boneColor, 0.35f, AnatomySystem.BONES)
         addPart(eng, sc, parentType = 1, 0f, -0.11f, 0.04f, 0.09f, 0.06f, 0.09f, boneColor, 0.35f, AnatomySystem.BONES)
 
-        // Torso Root Children (local Y: 0.0 = hips -> 0.85 = shoulders)
-        // Spine (13 vertebrae)
+        // Spine & Thorax
         for (i in 0 until 13) {
             val y = 0.05f + i * 0.064f
             val z = -0.12f + sin(i * 0.35f) * 0.02f
             addPart(eng, sc, parentType = 0, 0f, y, z, 0.04f, 0.028f, 0.04f, boneColor, 0.3f, AnatomySystem.BONES)
         }
-        // Sternum & Clavicles
         addPart(eng, sc, parentType = 0, 0f, 0.64f, 0.14f, 0.03f, 0.17f, 0.02f, boneColor, 0.3f, AnatomySystem.BONES)
         addPart(eng, sc, parentType = 0, -0.14f, 0.79f, 0.07f, 0.14f, 0.02f, 0.022f, boneColor, 0.3f, AnatomySystem.BONES)
         addPart(eng, sc, parentType = 0, 0.14f, 0.79f, 0.07f, 0.14f, 0.02f, 0.022f, boneColor, 0.3f, AnatomySystem.BONES)
 
-        // Ribcage (8 pairs)
         for (i in 0 until 8) {
             val y = 0.75f - i * 0.045f
             val rx = 0.19f + sin((i + 1) * 0.36f) * 0.05f
@@ -531,23 +997,21 @@ private class FilamentSceneController(
                 addPart(eng, sc, parentType = 0, side * rx * 0.56f, y, 0.02f, rx * 0.44f, 0.014f, rz, boneColor, 0.35f, AnatomySystem.BONES)
             }
         }
-        // Pelvis
         addPart(eng, sc, parentType = 0, -0.13f, 0.02f, 0f, 0.10f, 0.10f, 0.08f, boneColor, 0.3f, AnatomySystem.BONES)
         addPart(eng, sc, parentType = 0, 0.13f, 0.02f, 0f, 0.10f, 0.10f, 0.08f, boneColor, 0.3f, AnatomySystem.BONES)
 
-        // Organs inside Torso
+        // Organs
         addPart(eng, sc, parentType = 0, -0.05f, 0.61f, 0.04f, 0.068f, 0.085f, 0.065f, organHeartColor, 0.05f, AnatomySystem.ORGANS, isHeart = true)
         addPart(eng, sc, parentType = 0, 0.12f, 0.65f, -0.02f, 0.085f, 0.15f, 0.09f, organLungColor, 0.05f, AnatomySystem.ORGANS)
         addPart(eng, sc, parentType = 0, -0.13f, 0.65f, -0.02f, 0.080f, 0.15f, 0.09f, organLungColor, 0.05f, AnatomySystem.ORGANS)
         addPart(eng, sc, parentType = 0, 0.10f, 0.38f, 0.03f, 0.11f, 0.065f, 0.075f, organLiverColor, 0.1f, AnatomySystem.ORGANS)
         addPart(eng, sc, parentType = 0, -0.10f, 0.36f, 0.04f, 0.08f, 0.065f, 0.065f, organStomachColor, 0.05f, AnatomySystem.ORGANS)
 
-        // Torso Muscles (Pectorals & Abs)
+        // Pectorals
         addPart(eng, sc, parentType = 0, 0.11f, 0.70f, 0.12f, 0.10f, 0.07f, 0.035f, muscleColor, 0.05f, AnatomySystem.MUSCLES)
         addPart(eng, sc, parentType = 0, -0.11f, 0.70f, 0.12f, 0.10f, 0.07f, 0.035f, muscleColor, 0.05f, AnatomySystem.MUSCLES)
 
-        // Articulated 3D Limbs (driven directly by ML Kit Pose3D joints!)
-        // Arms: Humerus + Forearms + Hands + Biceps
+        // Articulated 3D Limbs driven by ML Kit Pose3D
         addLimbSegment(eng, sc, boneColor, 0.055f, AnatomySystem.BONES, { it.shR }, { it.elR })
         addLimbSegment(eng, sc, boneColor, 0.055f, AnatomySystem.BONES, { it.shL }, { it.elL })
         addLimbSegment(eng, sc, boneColor, 0.045f, AnatomySystem.BONES, { it.elR }, { it.wrR })
@@ -558,7 +1022,6 @@ private class FilamentSceneController(
         addLimbSegment(eng, sc, muscleColor, 0.085f, AnatomySystem.MUSCLES, { it.shR }, { it.elR })
         addLimbSegment(eng, sc, muscleColor, 0.085f, AnatomySystem.MUSCLES, { it.shL }, { it.elL })
 
-        // Legs: Femurs + Shins + Feet + Thigh muscles
         addLimbSegment(eng, sc, boneColor, 0.072f, AnatomySystem.BONES, { it.hpR }, { it.knR })
         addLimbSegment(eng, sc, boneColor, 0.072f, AnatomySystem.BONES, { it.hpL }, { it.knL })
         addLimbSegment(eng, sc, boneColor, 0.056f, AnatomySystem.BONES, { it.knR }, { it.akR })
@@ -569,7 +1032,6 @@ private class FilamentSceneController(
         addLimbSegment(eng, sc, muscleColor, 0.115f, AnatomySystem.MUSCLES, { it.hpR }, { it.knR })
         addLimbSegment(eng, sc, muscleColor, 0.115f, AnatomySystem.MUSCLES, { it.hpL }, { it.knL })
 
-        // Joint Spheres (Shoulders, Elbows, Wrists, Hips, Knees, Ankles)
         listOf<(ArticulatedPose3d) -> Vec3>(
             { it.shR }, { it.shL }, { it.elR }, { it.elL }, { it.wrR }, { it.wrL },
             { it.hpR }, { it.hpL }, { it.knR }, { it.knL }, { it.akR }, { it.akL },
@@ -623,7 +1085,7 @@ private class FilamentSceneController(
         val parent = if (parentType == 1) headRootEntity else torsoRootEntity
         tm.setParent(tm.getInstance(entity), tm.getInstance(parent))
         sc.addEntity(entity)
-        parts.add(MeshPart(entity, vb, ib, mat, category, parentType, isHeart = isHeart))
+        parts.add(MeshPart(entity, vb, ib, mat, category, parentType, floatArrayOf(cx, cy, cz), isHeart))
     }
 
     private fun addLimbSegment(
@@ -636,7 +1098,6 @@ private class FilamentSceneController(
         jointB: (ArticulatedPose3d) -> Vec3,
     ) {
         val mat = createMat(color, 0.3f) ?: return
-        // Unit bone along Y [-0.5..+0.5], unit radius 0.5 in X/Z
         val (vb, ib, box) = buildEllipsoidBuffers(eng, 0f, 0f, 0f, 0.5f, 0.5f, 0.5f, latBands = 10, lonBands = 14)
         val entity = EntityManager.get().create()
         RenderableManager.Builder(1)
@@ -681,10 +1142,9 @@ private class FilamentSceneController(
         val cam = camera ?: return
         if (uiHelper?.isReadyToRender != true) return
 
-        // Camera orbit around full-body midpoint
         val yawRad = targetOrbitYawDeg * PI.toFloat() / 180f
         val pitchRad = targetOrbitPitchDeg * PI.toFloat() / 180f
-        val dist = 3.15f
+        val dist = targetOrbitDistance
         val targetY = 0.02f
         val camX = dist * cos(pitchRad) * sin(yawRad)
         val camY = targetY + dist * sin(pitchRad) * 0.6f
@@ -695,80 +1155,141 @@ private class FilamentSceneController(
             0.0, 1.0, 0.0,
         )
 
-        // Build & smooth real-time 3D articulated pose from ML Kit Pose Detection
-        val frame = targetTrackingFrame
-        val targetArticulated = Pose3dKinematics.buildArticulatedPose(
-            pose3d = frame.pose3d,
-            isFrontCamera = targetFrontCamera,
-            faceEulerYDeg = frame.faceEulerY,
-        )
-        smoothedPoseState = lerpArticulated(smoothedPoseState, targetArticulated, 0.35f)
-        val pose = smoothedPoseState
-
         val tm = eng.transformManager
-        tm.getInstance(torsoRootEntity).takeIf { it != 0 }?.let { inst ->
-            tm.setTransform(inst, pose.torsoMatrix)
-        }
-        tm.getInstance(headRootEntity).takeIf { it != 0 }?.let { inst ->
-            tm.setTransform(inst, pose.headMatrix)
-        }
+        val rm = eng.renderableManager
+        val explode = targetExplodeFactor
+        val activeAsset = loadedGlbAsset
 
-        val tSec = frameTimeNanos / 1_000_000_000.0f
-        val pulse = 1f + 0.06f * sin(tSec * 5.2f)
-        val isXray = targetLook == VisualLook.XRAY
-
-        for (p in parts) {
-            val show = targetSystem == AnatomySystem.ALL || targetSystem == p.category
-            val inst = tm.getInstance(p.entity)
-            if (inst != 0) {
+        if (activeAsset != null) {
+            // Render real imported/bundled GLB atlas via Filament gltfio
+            tm.getInstance(activeAsset.root).takeIf { it != 0 }?.let { rootInst ->
                 val m = FloatArray(16)
                 Matrix.setIdentityM(m, 0)
-                if (!show) {
-                    Matrix.scaleM(m, 0, 0f, 0f, 0f)
-                } else if (p.isHeart) {
-                    Matrix.translateM(m, 0, -0.05f, 0.61f, 0.04f)
-                    Matrix.scaleM(m, 0, pulse, pulse, pulse)
-                    Matrix.translateM(m, 0, 0.05f, -0.61f, -0.04f)
-                }
-                tm.setTransform(inst, m)
+                Matrix.scaleM(m, 0, glbRootBaseScale, glbRootBaseScale, glbRootBaseScale)
+                Matrix.translateM(m, 0, glbRootCenterOffset[0], glbRootCenterOffset[1], glbRootCenterOffset[2])
+                tm.setTransform(rootInst, m)
             }
-            if (p.category == AnatomySystem.BONES) {
-                if (isXray) p.material.setParameter("baseColorFactor", 0.55f, 0.88f, 1.0f, 1.0f)
-                else p.material.setParameter("baseColorFactor", 0.94f, 0.90f, 0.80f, 1.0f)
-            }
-        }
 
-        for (seg in limbSegments) {
-            val show = targetSystem == AnatomySystem.ALL || targetSystem == seg.category
-            val inst = tm.getInstance(seg.entity)
-            if (inst != 0) {
-                if (!show) {
-                    val zero = FloatArray(16)
-                    Matrix.setIdentityM(zero, 0)
-                    Matrix.scaleM(zero, 0, 0f, 0f, 0f)
-                    tm.setTransform(inst, zero)
-                } else {
-                    val m = Pose3dKinematics.segmentMatrix(seg.jointA(pose), seg.jointB(pose), seg.thickness)
+            // Play embedded glTF animations if present (e.g. biv-heart 25 cardiac phases)
+            val animator = activeAsset.instance?.animator
+            if (animator != null && animator.animationCount > 0) {
+                if (glbAnimTimeStartNs == 0L) glbAnimTimeStartNs = frameTimeNanos
+                val elapsedSec = ((frameTimeNanos - glbAnimTimeStartNs) / 1_000_000_000.0f)
+                val dur = animator.getAnimationDuration(0)
+                if (dur > 0f) {
+                    animator.applyAnimation(0, elapsedSec % dur)
+                    animator.updateBoneMatrices()
+                }
+            }
+
+            val hiddenSet = targetHiddenGlbEntities
+            for (node in glbNodes) {
+                val ri = rm.getInstance(node.entity)
+                if (ri != 0) {
+                    val sysMatch = targetSystem == AnatomySystem.ALL ||
+                        node.system == AnatomySystem.ALL ||
+                        node.system == targetSystem
+                    val vis = sysMatch && (node.entity !in hiddenSet)
+                    rm.setLayerMask(ri, 0xFF, if (vis) 0xFF else 0x00)
+                }
+                val ti = tm.getInstance(node.entity)
+                if (ti != 0) {
+                    if (explode <= 0.001f) {
+                        tm.setTransform(ti, node.baseMatrix)
+                    } else {
+                        val m = node.baseMatrix.copyOf()
+                        m[12] += node.explodeOffset[0] * explode
+                        m[13] += node.explodeOffset[1] * explode
+                        m[14] += node.explodeOffset[2] * explode
+                        tm.setTransform(ti, m)
+                    }
+                }
+            }
+        } else {
+            // Render real-time ML Kit Pose3D articulated model
+            val frame = targetTrackingFrame
+            val targetArticulated = Pose3dKinematics.buildArticulatedPose(
+                pose3d = frame.pose3d,
+                isFrontCamera = targetFrontCamera,
+                faceEulerYDeg = frame.faceEulerY,
+            )
+            smoothedPoseState = lerpArticulated(smoothedPoseState, targetArticulated, 0.35f)
+            val pose = smoothedPoseState
+
+            tm.getInstance(torsoRootEntity).takeIf { it != 0 }?.let { inst ->
+                tm.setTransform(inst, pose.torsoMatrix)
+            }
+            tm.getInstance(headRootEntity).takeIf { it != 0 }?.let { inst ->
+                tm.setTransform(inst, pose.headMatrix)
+            }
+
+            val tSec = frameTimeNanos / 1_000_000_000.0f
+            val pulse = 1f + 0.06f * sin(tSec * 5.2f)
+            val isXray = targetLook == VisualLook.XRAY
+
+            for (p in parts) {
+                val show = targetSystem == AnatomySystem.ALL || targetSystem == p.category
+                val inst = tm.getInstance(p.entity)
+                if (inst != 0) {
+                    val m = FloatArray(16)
+                    Matrix.setIdentityM(m, 0)
+                    if (!show) {
+                        Matrix.scaleM(m, 0, 0f, 0f, 0f)
+                    } else {
+                        val expZ = if (p.category == AnatomySystem.MUSCLES) explode * 0.25f else if (p.category == AnatomySystem.ORGANS) explode * 0.10f else 0f
+                        val expX = p.basePos[0] * explode * 0.45f
+                        if (expX != 0f || expZ != 0f) {
+                            Matrix.translateM(m, 0, expX, 0f, expZ)
+                        }
+                        if (p.isHeart) {
+                            Matrix.translateM(m, 0, -0.05f, 0.61f, 0.04f)
+                            Matrix.scaleM(m, 0, pulse, pulse, pulse)
+                            Matrix.translateM(m, 0, 0.05f, -0.61f, -0.04f)
+                        }
+                    }
                     tm.setTransform(inst, m)
                 }
+                if (p.category == AnatomySystem.BONES) {
+                    if (isXray) p.material.setParameter("baseColorFactor", 0.55f, 0.88f, 1.0f, 1.0f)
+                    else p.material.setParameter("baseColorFactor", 0.94f, 0.90f, 0.80f, 1.0f)
+                }
             }
-            if (seg.category == AnatomySystem.BONES) {
-                if (isXray) seg.material.setParameter("baseColorFactor", 0.55f, 0.88f, 1.0f, 1.0f)
-                else seg.material.setParameter("baseColorFactor", 0.94f, 0.90f, 0.80f, 1.0f)
-            }
-        }
 
-        val showJoints = targetSystem == AnatomySystem.ALL || targetSystem == AnatomySystem.BONES
-        for (js in jointSpheres) {
-            val inst = tm.getInstance(js.entity)
-            if (inst != 0) {
-                if (!showJoints) {
-                    val zero = FloatArray(16)
-                    Matrix.setIdentityM(zero, 0)
-                    Matrix.scaleM(zero, 0, 0f, 0f, 0f)
-                    tm.setTransform(inst, zero)
-                } else {
-                    tm.setTransform(inst, Pose3dKinematics.jointMatrix(js.jointPos(pose), js.radius))
+            for (seg in limbSegments) {
+                val show = targetSystem == AnatomySystem.ALL || targetSystem == seg.category
+                val inst = tm.getInstance(seg.entity)
+                if (inst != 0) {
+                    if (!show) {
+                        val zero = FloatArray(16)
+                        Matrix.setIdentityM(zero, 0)
+                        Matrix.scaleM(zero, 0, 0f, 0f, 0f)
+                        tm.setTransform(inst, zero)
+                    } else {
+                        val m = Pose3dKinematics.segmentMatrix(seg.jointA(pose), seg.jointB(pose), seg.thickness)
+                        if (seg.category == AnatomySystem.MUSCLES && explode > 0f) {
+                            m[14] += explode * 0.18f
+                        }
+                        tm.setTransform(inst, m)
+                    }
+                }
+                if (seg.category == AnatomySystem.BONES) {
+                    if (isXray) seg.material.setParameter("baseColorFactor", 0.55f, 0.88f, 1.0f, 1.0f)
+                    else seg.material.setParameter("baseColorFactor", 0.94f, 0.90f, 0.80f, 1.0f)
+                }
+            }
+
+            val showJoints = targetSystem == AnatomySystem.ALL || targetSystem == AnatomySystem.BONES
+            for (js in jointSpheres) {
+                val inst = tm.getInstance(js.entity)
+                if (inst != 0) {
+                    if (!showJoints) {
+                        val zero = FloatArray(16)
+                        Matrix.setIdentityM(zero, 0)
+                        Matrix.scaleM(zero, 0, 0f, 0f, 0f)
+                        tm.setTransform(inst, zero)
+                    } else {
+                        tm.setTransform(inst, Pose3dKinematics.jointMatrix(js.jointPos(pose), js.radius))
+                    }
                 }
             }
         }
@@ -814,6 +1335,9 @@ private class FilamentSceneController(
         val eng = engine ?: return
         runCatching {
             uiHelper?.detach()
+            clearGlbAsset()
+            resourceLoader?.destroy()
+            assetLoader?.destroy()
             parts.forEach { part ->
                 scene?.removeEntity(part.entity)
                 eng.destroyEntity(part.entity)
@@ -841,6 +1365,7 @@ private class FilamentSceneController(
             if (torsoRootEntity != 0) eng.destroyEntity(torsoRootEntity)
             if (headRootEntity != 0) eng.destroyEntity(headRootEntity)
             if (lightEntity != 0) eng.destroyEntity(lightEntity)
+            if (fillLightEntity != 0) eng.destroyEntity(fillLightEntity)
             materialProvider?.destroyMaterials()
             renderer?.let { eng.destroyRenderer(it) }
             view?.let { eng.destroyView(it) }

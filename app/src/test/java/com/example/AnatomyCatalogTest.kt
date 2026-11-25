@@ -73,4 +73,22 @@ class AnatomyCatalogTest {
         // In front-camera mirror mode, negative raw X (-160) maps to positive mirror +X
         assertTrue(articulated.wrR.x > 0f)
     }
+
+    @Test
+    fun `glb header validation and arabic node label mapping work accurately`() {
+        val validGlbHeader = byteArrayOf(0x67, 0x6C, 0x54, 0x46, 2, 0, 0, 0, 12, 0, 0, 0)
+        val invalidHeader = byteArrayOf(0x7B, 0x22, 0x61, 0x73, 0, 0, 0, 0, 0, 0, 0, 0)
+        assertTrue(com.example.data.GlbModelRepository.isValidGlbBytes(validGlbHeader))
+        assertTrue(!com.example.data.GlbModelRepository.isValidGlbBytes(invalidHeader))
+
+        val heartNode = com.example.data.GlbNodeLabelMapper.mapNode(1, "VH_M_Heart_ventricle")
+        assertNotNull(heartNode)
+        assertEquals(com.example.model.AnatomySystem.ORGANS, heartNode!!.system)
+
+        val boneNode = com.example.data.GlbNodeLabelMapper.mapNode(2, "Left_Femur_bone")
+        assertNotNull(boneNode)
+        assertEquals(com.example.model.AnatomySystem.BONES, boneNode!!.system)
+
+        assertTrue(com.example.data.AnatomyAttributions.entries.any { it.source.contains("biv-me") && it.citationOrUrl.contains("Dillon et al. 2026") })
+    }
 }
