@@ -50,7 +50,7 @@ object GlbModelRepository {
         runCatching {
             val assetNames = context.assets.list(MODELS_SUBDIR)?.filter {
                 it.endsWith(".glb", ignoreCase = true)
-            } ?: emptyList()
+            }?.sorted() ?: emptyList()
             for (name in assetNames) {
                 val assetPath = "$MODELS_SUBDIR/$name"
                 val size = runCatching {
@@ -147,17 +147,22 @@ object GlbModelRepository {
     private fun cleanDisplayName(fileName: String): String {
         val stem = fileName.substringBeforeLast('.')
         return when {
-            stem.contains("heart", true) || stem.contains("biv", true) -> "القلب ($stem)"
-            stem.contains("brain", true) || stem.contains("sinir", true) -> "الجهاز العصبي والدماغ ($stem)"
+            stem.contains("heart", true) || stem.contains("kalp", true) || stem.contains("biv", true) -> "القلب ($stem)"
+            stem.contains("brain", true) || stem.contains("beyin", true) || stem.contains("sinir", true) || stem.contains("nerv", true) -> "الجهاز العصبي والدماغ ($stem)"
             stem.contains("lenf", true) || stem.contains("lymph", true) -> "الجهاز اللمفاوي ($stem)"
-            stem.contains("lung", true) -> "الرئتان ($stem)"
-            stem.contains("liver", true) -> "الكبد ($stem)"
-            stem.contains("kidney", true) -> "الكلى ($stem)"
-            stem.contains("organ", true) || stem.contains("viscera", true) -> "الأعضاء الداخلية ($stem)"
-            stem.contains("dolasim", true) || stem.contains("circul", true) -> "الجهاز الدوري ($stem)"
-            stem.contains("iskelet", true) || stem.contains("skeleton", true) -> "الهيكل العظمي ($stem)"
-            stem.contains("bag", true) || stem.contains("ligament", true) -> "المفاصل والأربطة ($stem)"
-            stem.contains("kas", true) || stem.contains("muscle", true) -> "العضلات ($stem)"
+            stem.contains("lung", true) || stem.contains("akciger", true) || stem.contains("solunum", true) || stem.contains("respir", true) -> "الجهاز التنفسي ($stem)"
+            stem.contains("liver", true) || stem.contains("karaciger", true) -> "الكبد ($stem)"
+            stem.contains("kidney", true) || stem.contains("bobrek", true) || stem.contains("bosaltim", true) || stem.contains("urin", true) -> "الجهاز البولي والكلى ($stem)"
+            stem.contains("sindirim", true) || stem.contains("digest", true) || stem.contains("mide", true) || stem.contains("stomach", true) -> "الجهاز الهضمي ($stem)"
+            stem.contains("ureme", true) || stem.contains("reprod", true) -> "الجهاز التناسلي ($stem)"
+            stem.contains("endokrin", true) || stem.contains("endocrin", true) -> "الغدد الصماء ($stem)"
+            stem.contains("duyu", true) || stem.contains("eye", true) || stem.contains("goz", true) || stem.contains("ear", true) || stem.contains("kulak", true) -> "أعضاء الحس ($stem)"
+            stem.contains("organ", true) || stem.contains("viscera", true) || stem.contains("splanchn", true) -> "الأعضاء الداخلية ($stem)"
+            stem.contains("dolasim", true) || stem.contains("circul", true) || stem.contains("damar", true) || stem.contains("vasc", true) -> "الجهاز الدوري ($stem)"
+            stem.contains("iskelet", true) || stem.contains("skeleton", true) || stem.contains("bone", true) -> "الهيكل العظمي ($stem)"
+            stem.contains("eklem", true) || stem.contains("joint", true) || stem.contains("bag", true) || stem.contains("ligament", true) -> "المفاصل والأربطة ($stem)"
+            stem.contains("kas", true) || stem.contains("muscle", true) || stem.contains("myo", true) -> "العضلات ($stem)"
+            stem.contains("skin", true) || stem.contains("deri", true) || stem.contains("integument", true) -> "الجلد ($stem)"
             stem.contains("body", true) -> "الجسم الكامل ($stem)"
             else -> stem.replace('_', ' ').replace('-', ' ')
         }

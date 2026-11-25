@@ -27,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.rounded.AccessibilityNew
 import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.AutoStories
@@ -40,7 +41,6 @@ import androidx.compose.material.icons.rounded.Flip
 import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material.icons.rounded.Label
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PhotoCamera
@@ -281,7 +281,7 @@ fun ControlSheet(
                         GridToolItem("لقطة", Icons.Rounded.PhotoCamera, false, "snapshot_button", onClick = onSnapshot),
                         GridToolItem(recLabel, recIcon, state.isRecording || state.recordingCountdown, "record_button", if (state.isRecording) AlertRed else null, onToggleRecord),
 
-                        GridToolItem("الأسماء", Icons.Rounded.Label, state.showLabels, "labels_button", onClick = onToggleLabels),
+                        GridToolItem("الأسماء", Icons.AutoMirrored.Rounded.Label, state.showLabels, "labels_button", onClick = onToggleLabels),
                         GridToolItem("الاتجاه: ${state.viewDirection.labelAr}", Icons.Rounded.Visibility, state.viewDirection != BodyViewDirection.AUTO, "view_direction_button", onClick = onCycleViewDirection),
                         GridToolItem("قص الجسم", Icons.Rounded.ContentCut, state.segEnabled, "segmentation_button", onClick = onToggleSegmentation),
                         GridToolItem("معايرة", Icons.Rounded.Straighten, state.calibration?.hasTorso == true, "calibration_button", onClick = onStartCalibration),

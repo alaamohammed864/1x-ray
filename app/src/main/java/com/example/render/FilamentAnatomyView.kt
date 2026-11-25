@@ -27,11 +27,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Gavel
-import androidx.compose.material.icons.rounded.Label
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.ViewInAr
 import androidx.compose.material3.CircularProgressIndicator
@@ -389,7 +389,7 @@ fun FilamentAnatomyOverlay(
                                     modifier = Modifier.testTag("toggle_glb_labels_button"),
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Rounded.Label,
+                                        imageVector = Icons.AutoMirrored.Rounded.Label,
                                         contentDescription = "أجزاء النموذج",
                                         tint = if (showGlbLabelsPanel) CyanPrimary else Color.White,
                                     )
@@ -433,9 +433,12 @@ fun FilamentAnatomyOverlay(
                         }
                     }
 
-                    // Model switcher chips (Live ML Kit Pose vs Local GLBs + Import)
+                    // Model switcher chips (bounded scrollable container for 9+ GLB files)
                     FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 96.dp)
+                            .verticalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
