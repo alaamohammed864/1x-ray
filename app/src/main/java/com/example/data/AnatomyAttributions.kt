@@ -43,11 +43,11 @@ object AnatomyAttributions {
             hasShareAlikeWarning = true,
         ),
         AnatomyAttribution(
-            source = "Z-Anatomy (Gauthier Kervyn & Marcin Zieliński)",
+            source = "Z-Anatomy (Gauthier Kervyn & Marcin Zieliński) — عبر DrMuratAltun",
             license = "CC BY-SA 4.0",
             licenseBadgeColorHex = 0xFFFFCF6B,
-            usageNote = "أطلس العضلات والعظام والأعصاب والأوعية والأحشاء؛ ملفات النماذج معزولة عن الشيفرة احترامًا لشرط ShareAlike.",
-            citationOrUrl = "https://github.com/LluisV/Z-Anatomy",
+            usageNote = "النماذج المدمجة السبعة: الهيكل العظمي (iskelet)، المفاصل والأربطة (eklem)، العضلات (kas)، الجهاز الدوري (dolasim)، الأعصاب (sinir)، اللمفاوي (lenf)، والأعضاء الداخلية (ic-organlar). ملفات GLB مفصولة عن الشيفرة احترامًا لشرط ShareAlike.",
+            citationOrUrl = "https://github.com/LluisV/Z-Anatomy · https://github.com/DrMuratAltun/anatomi-simulatoru",
             hasShareAlikeWarning = true,
         ),
         AnatomyAttribution(
@@ -105,31 +105,50 @@ object GlbNodeLabelMapper {
     )
 
     private val rules = listOf(
-        KeywordRule(listOf("heart", "cor", "cardiac", "ventricle", "atrium", "myocard", "aorta", "biv"), "القلب والأوعية الكبرى", AnatomySystem.ORGANS),
-        KeywordRule(listOf("lung", "pulmo", "bronch", "trachea"), "الرئتان والشعب الهوائية", AnatomySystem.ORGANS),
-        KeywordRule(listOf("brain", "encephal", "cerebr", "cerebell", "cortex"), "الدماغ", AnatomySystem.ORGANS),
-        KeywordRule(listOf("liver", "hepar", "hepatic", "gallbladder"), "الكبد والمرارة", AnatomySystem.ORGANS),
-        KeywordRule(listOf("kidney", "renal", "nephr"), "الكليتان", AnatomySystem.ORGANS),
-        KeywordRule(listOf("stomach", "gaster", "gastric", "esophag"), "المعدة والمريء", AnatomySystem.ORGANS),
-        KeywordRule(listOf("intestin", "colon", "duodenum", "jejunum", "ileum", "bowel"), "الأمعاء", AnatomySystem.ORGANS),
-        KeywordRule(listOf("spleen", "pancreas", "bladder"), "أعضاء البطن والحوض", AnatomySystem.ORGANS),
-        KeywordRule(listOf("skull", "crani", "mandib", "maxilla", "frontal", "temporal", "parietal"), "الجمجمة والفك", AnatomySystem.BONES),
-        KeywordRule(listOf("spine", "verteb", "sacrum", "coccyx", "cervical", "thoracic", "lumbar"), "العمود الفقري", AnatomySystem.BONES),
-        KeywordRule(listOf("rib", "costa", "sternum", "clavic", "scapula"), "القفص الصدري والكتف", AnatomySystem.BONES),
-        KeywordRule(listOf("pelvis", "ilium", "ischium", "pubis", "hip"), "الحوض", AnatomySystem.BONES),
-        KeywordRule(listOf("humerus", "radius", "ulna", "carpal", "metacarpal", "phalan", "femur", "tibia", "fibula", "patella", "tarsal", "bone", "skeleton", "iskelet"), "الهيكل العظمي", AnatomySystem.BONES),
-        KeywordRule(listOf("musc", "pectoral", "bicep", "tricep", "deltoid", "rectus", "glute", "quadricep", "hamstring", "gastroc", "trapezius", "latissimus", "tendon", "kas"), "العضلات والأوتار", AnatomySystem.MUSCLES),
-        KeywordRule(listOf("lymph", "lenf", "nodus", "thymus", "tonsil", "cisterna", "thoracic_duct"), "العقد والأوعية اللمفاوية", AnatomySystem.ORGANS),
-        KeywordRule(listOf("nerve", "nervus", "plexus", "sinir", "gangli", "medulla", "brachial", "sciatic", "vagus", "cranial"), "الأعصاب والعقد العصبية", AnatomySystem.ORGANS),
-        KeywordRule(listOf("artery", "vein", "vascul", "dolasim", "damar"), "الأوعية الدموية", AnatomySystem.ORGANS),
+        // Lymphatic nodes & lymphoid organs (check before thyroid/parotid/etc.)
+        KeywordRule(listOf("lymph", "lenf", "nodes", " node", "nodus", "thymus", "tonsil", "spleen", "cisterna", "thoracic duct"), "العقد والأعضاء اللمفاوية", AnatomySystem.ORGANS),
+        // Ear ossicles, teeth, laryngeal/costal cartilages
+        KeywordRule(listOf("incus", "malleus", "stapes"), "عظيمات السمع", AnatomySystem.BONES),
+        KeywordRule(listOf("incisor", "canine", "premolar", "molar", "tooth", "teeth"), "الأسنان", AnatomySystem.BONES),
+        KeywordRule(listOf("thyroid cartilage", "cricoid", "arytenoid", "corniculate"), "غضاريف الحنجرة", AnatomySystem.BONES),
+        KeywordRule(listOf("costal cartilage"), "الغضاريف الضلعية", AnatomySystem.BONES),
+        // Joints, ligaments, capsules, menisci, intervertebral discs (before nervous "nucleus" or vascular "capsule")
+        KeywordRule(listOf("ligament", "meniscus", "labrum", "articular capsule", "articular disc", "interpubic disc", "nucleus pulposus", "anulus fibrosus", "symphysis", "interosseous membrane", "obturator membrane", "oblique cord", "zona orbicularis", "fat pad", "frenula", "cartilage"), "المفاصل والأربطة والغضاريف", AnatomySystem.BONES),
+        // Nervous system (brain ventricles checked before heart ventricle; sympathetic trunk before vascular trunk)
+        KeywordRule(listOf("brain", "encephal", "cerebr", "cerebell", "cortex", "pons", "medulla", "thalamus", "hypothalam", "hippocamp", "amygdala", "corpus callosum", "adenohypophysis", "neurohypophysis", "pineal", "lateral ventricle", "third ventricle", "fourth ventricle", "olive", "colliculus", "peduncle", "lemniscus", "internal capsule", "external capsule", "striatum", "putamen", "globus pallidus", "caudate", "substantia nigra", "fornix", "commissure", "septum pellucidum", "gyrus", "sulcus", "frontal lobe", "parietal lobe", "temporal lobe", "occipital lobe", "limbic", "insula", "vermis", "flocculus", "meninges", "dura mater", "pia mater", "arachnoid"), "الدماغ والجهاز العصبي المركزي", AnatomySystem.ORGANS),
+        KeywordRule(listOf("nerve", "nervus", "plexus", "sinir", "gangli", "spinal cord", "central canal", "cauda equina", "filum terminale", "sympathetic", "parasympathetic", "chorda tympani", "chiasm", "optic nerve", "optic tract", "olfactory", "oculomotor", "trochlear", "trigeminal", "abducens", "vestibulocochlear", "glossopharyngeal", "hypoglossal", "nucleus", "fasciculus", "decussation", "brachial", "sciatic", "vagus", "cranial", "tract", "ramus", "rami", "root"), "الأعصاب والعقد العصبية", AnatomySystem.ORGANS),
+        // Circulatory / Cardiovascular
+        KeywordRule(listOf("heart", "cor ", "cardiac", "ventricle", "atrium", "myocard", "pericard", "biv"), "القلب", AnatomySystem.ORGANS),
+        KeywordRule(listOf("aorta", "aortic", "artery", "arteries", "vein", "veins", "vena ", "carotid", "jugular", "coronary", "iliac", "subclavian", "femoral", "pulmonary trunk", "palmar arch", "plantar arch", "venous arch", "arterial arch", "branches", "branch", "vascul", "dolasim", "damar", "sinus", "trunk"), "الأوعية الدموية", AnatomySystem.ORGANS),
+        // Respiratory
+        KeywordRule(listOf("lung", "pulmo", "bronch", "trachea", "pleura", "epiglottis", "larynx", "nasal cavity"), "الجهاز التنفسي", AnatomySystem.ORGANS),
+        // Digestive & Hepatobiliary
+        KeywordRule(listOf("liver", "hepar", "hepatic", "gallbladder", "bile duct"), "الكبد والمرارة", AnatomySystem.ORGANS),
+        KeywordRule(listOf("stomach", "gaster", "gastric", "oesophag", "esophag", "pharynx", "tongue", "palate", "uvula", "gingiva", "parotid", "submandibular", "sublingual"), "المعدة والمريء والفم", AnatomySystem.ORGANS),
+        KeywordRule(listOf("pancreas", "pancreatic"), "البنكرياس", AnatomySystem.ORGANS),
+        KeywordRule(listOf("intestin", "colon", "duodenum", "jejunum", "ileum", "appendix", "omentum", "mesocolon", "meso-appendix", "taenia", "bowel", "rectum"), "الأمعاء والصفاق", AnatomySystem.ORGANS),
+        // Urinary & Endocrine & Reproductive
+        KeywordRule(listOf("kidney", "renal", "nephr", "ureter", "urethra", "urinary bladder"), "الجهاز البولي والكلى", AnatomySystem.ORGANS),
+        KeywordRule(listOf("thyroid", "parathyroid", "suprarenal", "adrenal"), "الغدد الصماء", AnatomySystem.ORGANS),
+        KeywordRule(listOf("prostate", "testis", "epididymis", "seminal", "ductus deferens", "ejaculatory", "penis", "ovary", "uterus"), "الجهاز التناسلي", AnatomySystem.ORGANS),
+        // Skeletal
+        KeywordRule(listOf("skull", "crani", "mandib", "maxilla", "frontal", "temporal", "parietal", "occipital", "sphenoid", "ethmoid", "zygomatic", "lacrimal", "palatine", "vomer", "hyoid", "nasal bone", "concha"), "الجمجمة والفك", AnatomySystem.BONES),
+        KeywordRule(listOf("spine", "verteb", "atlas", "axis", "sacrum", "coccyx", "cervical", "thoracic", "lumbar"), "العمود الفقري", AnatomySystem.BONES),
+        KeywordRule(listOf("rib", "costa", "sternum", "manubrium", "xiphoid", "clavic", "scapula"), "القفص الصدري والكتف", AnatomySystem.BONES),
+        KeywordRule(listOf("pelvis", "ilium", "ischium", "pubis", "hip bone"), "عظام الحوض", AnatomySystem.BONES),
+        KeywordRule(listOf("humerus", "radius", "ulna", "scaphoid", "lunate", "triquetrum", "pisiform", "trapezium", "trapezoid", "capitate", "hamate", "carpal", "metacarpal", "phalanx", "phalan"), "عظام الطرف العلوي واليد", AnatomySystem.BONES),
+        KeywordRule(listOf("femur", "tibia", "fibula", "patella", "calcaneus", "talus", "navicular", "cuboid", "cuneiform", "tarsal", "metatarsal", "sesamoid"), "عظام الطرف السفلي والقدم", AnatomySystem.BONES),
+        KeywordRule(listOf("bone", "skeleton", "iskelet"), "الهيكل العظمي", AnatomySystem.BONES),
+        // Muscular (including deep/facial/pharyngeal/pelvic muscles, bursae & aponeuroses)
+        KeywordRule(listOf("musc", "pectoral", "bicep", "tricep", "deltoid", "rectus", "oblique", "transversus", "glute", "quadricep", "vastus", "sartorius", "gracilis", "adductor", "abductor", "hamstring", "gastroc", "soleus", "tibialis", "trapezius", "latissimus", "rhomboid", "serratus", "sternocleidomastoid", "masseter", "temporalis", "orbicularis", "diaphragm", "intercostal", "flexor", "extensor", "pronator", "supinator", "tendon", "tendinous", "aponeurosis", "fascia", "retinaculum", "linea alba", "constrictor", "platysma", "levator", "depressor", "sphincter", "tensor", "corrugator", "procerus", "nasalis", "buccinator", "risorius", "mentalis", "zygomaticus", "genioglossus", "hyoglossus", "styloglossus", "mylohyoid", "geniohyoid", "omohyoid", "sternohyoid", "thyrohyoid", "sternothyroid", "scalene", "longus", "splenius", "semispinalis", "spinalis", "longissimus", "iliocostalis", "multifidus", "rotatores", "quadratus", "psoas", "iliacus", "piriformis", "obturator", "gemellus", "pectineus", "popliteus", "plantaris", "peroneus", "fibularis", "lumbrical", "interossei", "opponens", "palmaris", "brachioradialis", "anconeus", "coracobrachialis", "teres", "infraspinatus", "supraspinatus", "subscapularis", "cremaster", "dartos", "bulbospongiosus", "ischiocavernosus", "perineal", "superior tarsus", "inferior tarsus", "bursa", "kas"), "العضلات والأوتار", AnatomySystem.MUSCLES),
     )
 
     fun mapNode(entity: Int, rawName: String?): MappedGlbNode? {
         val clean = rawName?.trim().orEmpty()
-        if (clean.isEmpty()) return null
+        if (clean.isEmpty() || clean.startsWith("?")) return null
         val lower = clean.lowercase()
-        // Ignore generic root/camera/empty helper nodes
-        if (lower in setOf("root", "scene", "armature", "camera", "light")) return null
+        // Ignore generic root/camera/empty/mesh helper nodes
+        if (lower in setOf("root", "scene", "armature", "camera", "light", "mesh", "circle")) return null
 
         val matched = rules.firstOrNull { rule ->
             rule.keywords.any { kw -> lower.contains(kw) }

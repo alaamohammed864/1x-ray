@@ -140,7 +140,12 @@ class XRayViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectGlbModel(id: String?) {
-        _uiState.update { it.copy(selectedGlbId = id) }
+        _uiState.update { state ->
+            state.copy(
+                selectedGlbId = id,
+                system = if (id != null) AnatomySystem.ALL else state.system,
+            )
+        }
     }
 
     fun deleteGlbModel(model: InstalledGlbModel) {

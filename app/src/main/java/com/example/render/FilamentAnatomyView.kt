@@ -86,6 +86,7 @@ import com.google.android.filament.Engine
 import com.google.android.filament.EntityManager
 import com.google.android.filament.Filament
 import com.google.android.filament.IndexBuffer
+import com.google.android.filament.IndirectLight
 import com.google.android.filament.LightManager
 import com.google.android.filament.MaterialInstance
 import com.google.android.filament.RenderableManager
@@ -365,8 +366,10 @@ fun FilamentAnatomyOverlay(
                                 )
                                 val syncText = when {
                                     selectedModel != null -> glbLoadStatus ?: selectedModel.displayName
-                                    installedModels.isEmpty() && trackingFrame.hasPose ->
-                                        "تتبع الكاميرا نشط ✓ (${trackingFrame.fps} إ/ث) · 0 ملفات GLB محلية"
+                                    installedModels.isNotEmpty() && trackingFrame.hasPose ->
+                                        "تتبع الكاميرا نشط ✓ · ${installedModels.size} نماذج GLB طبية جاهزة أعلاه"
+                                    installedModels.isNotEmpty() ->
+                                        "${installedModels.size} نماذج GLB طبية جاهزة دون اتصال · اختر نموذجًا أعلاه"
                                     trackingFrame.hasPose ->
                                         "تتبع الكاميرا نشط ✓ (${trackingFrame.fps} إطار/ث) · اسحب وقرّب"
                                     else ->
@@ -702,6 +705,8 @@ private class FilamentSceneController(
     private var headRootEntity: Int = 0
     private var lightEntity: Int = 0
     private var fillLightEntity: Int = 0
+    private var rimLightEntity: Int = 0
+    private var indirectLight: IndirectLight? = null
 
     // Loaded external/local GLB asset
     private var loadedGlbAsset: FilamentAsset? = null
@@ -709,6 +714,12 @@ private class FilamentSceneController(
     private var glbRootBaseScale: Float = 1f
     private var glbRootCenterOffset: FloatArray = floatArrayOf(0f, 0f, 0f)
     private var glbAnimTimeStartNs: Long = 0L
+    private var pendingGlbBytes: ByteArray? = null
+    private var glbTransformsDirty: Boolean = true
+    private var lastGlbExplode: Float = -1f
+    private var lastGlbSystem: AnatomySystem? = null
+    private var lastGlbHidden: Set<Int>? = null
+    private val scratchMatrix = FloatArray(16)
 
     private val parts = mutableListOf<MeshPart>()
     private val limbSegments = mutableListOf<LimbSegmentMesh>()
@@ -769,6 +780,7 @@ private class FilamentSceneController(
     }
 
     fun clearGlbAsset() {
+        pendingGlbBytes = null
         val eng = engine ?: return
         val sc = scene ?: return
         val asset = loadedGlbAsset ?: return
@@ -782,10 +794,15 @@ private class FilamentSceneController(
     }
 
     fun loadGlbBytes(bytes: ByteArray): Boolean {
-        val eng = engine ?: return false
-        val sc = scene ?: return false
-        val loader = assetLoader ?: return false
-        val resLoader = resourceLoader ?: return false
+        val eng = engine
+        val sc = scene
+        val loader = assetLoader
+        val resLoader = resourceLoader
+        if (eng == null || sc == null || loader == null || resLoader == null) {
+            pendingGlbBytes = bytes
+            return true
+        }
+        pendingGlbBytes = null
 
         clearGlbAsset()
 
@@ -851,6 +868,10 @@ private class FilamentSceneController(
             loadedGlbAsset = asset
             glbNodes = backups
             glbAnimTimeStartNs = 0L
+            glbTransformsDirty = true
+            lastGlbExplode = -1f
+            lastGlbSystem = null
+            lastGlbHidden = null
             setProceduralLiveVisible(eng, false)
             onGlbNodesDiscovered(mappedList.distinctBy { it.rawName })
             true
@@ -938,6 +959,10 @@ private class FilamentSceneController(
                 }
             }
             helper.attachTo(surfaceView)
+            pendingGlbBytes?.let { bytes ->
+                pendingGlbBytes = null
+                loadGlbBytes(bytes)
+            }
             choreographer.postFrameCallback(frameCallback)
         } catch (t: Throwable) {
             onError("تعذّر تهيئة محرك Filament 3D على هذا الجهاز: ${t.localizedMessage ?: "OpenGL ES 3.0 مطلوب"}")
@@ -950,19 +975,36 @@ private class FilamentSceneController(
 
         lightEntity = em.create()
         LightManager.Builder(LightManager.Type.DIRECTIONAL)
-            .color(0.96f, 0.98f, 1.0f)
-            .intensity(98_000f)
+            .color(0.98f, 0.98f, 1.0f)
+            .intensity(96_000f)
             .direction(-0.35f, -0.55f, -0.75f)
             .build(eng, lightEntity)
         sc.addEntity(lightEntity)
 
         fillLightEntity = em.create()
         LightManager.Builder(LightManager.Type.DIRECTIONAL)
-            .color(0.55f, 0.85f, 1.0f)
-            .intensity(42_000f)
+            .color(0.65f, 0.88f, 1.0f)
+            .intensity(46_000f)
             .direction(0.55f, 0.35f, 0.70f)
             .build(eng, fillLightEntity)
         sc.addEntity(fillLightEntity)
+
+        rimLightEntity = em.create()
+        LightManager.Builder(LightManager.Type.DIRECTIONAL)
+            .color(0.95f, 0.97f, 1.0f)
+            .intensity(34_000f)
+            .direction(0.0f, 0.45f, 0.90f)
+            .build(eng, rimLightEntity)
+        sc.addEntity(rimLightEntity)
+
+        runCatching {
+            val ibl = IndirectLight.Builder()
+                .irradiance(1, floatArrayOf(0.58f, 0.60f, 0.64f))
+                .intensity(30_000f)
+                .build(eng)
+            indirectLight = ibl
+            sc.indirectLight = ibl
+        }
 
         torsoRootEntity = em.create()
         eng.transformManager.create(torsoRootEntity)
@@ -1164,15 +1206,6 @@ private class FilamentSceneController(
         val activeAsset = loadedGlbAsset
 
         if (activeAsset != null) {
-            // Render real imported/bundled GLB atlas via Filament gltfio
-            tm.getInstance(activeAsset.root).takeIf { it != 0 }?.let { rootInst ->
-                val m = FloatArray(16)
-                Matrix.setIdentityM(m, 0)
-                Matrix.scaleM(m, 0, glbRootBaseScale, glbRootBaseScale, glbRootBaseScale)
-                Matrix.translateM(m, 0, glbRootCenterOffset[0], glbRootCenterOffset[1], glbRootCenterOffset[2])
-                tm.setTransform(rootInst, m)
-            }
-
             // Play embedded glTF animations if present (e.g. biv-heart 25 cardiac phases)
             val animator = activeAsset.instance?.animator
             if (animator != null && animator.animationCount > 0) {
@@ -1185,28 +1218,54 @@ private class FilamentSceneController(
                 }
             }
 
-            val hiddenSet = targetHiddenGlbEntities
-            for (node in glbNodes) {
-                val ri = rm.getInstance(node.entity)
-                if (ri != 0) {
-                    val sysMatch = targetSystem == AnatomySystem.ALL ||
-                        node.system == AnatomySystem.ALL ||
-                        node.system == targetSystem
-                    val vis = sysMatch && (node.entity !in hiddenSet)
-                    rm.setLayerMask(ri, 0xFF, if (vis) 0xFF else 0x00)
+            if (glbTransformsDirty) {
+                tm.getInstance(activeAsset.root).takeIf { it != 0 }?.let { rootInst ->
+                    Matrix.setIdentityM(scratchMatrix, 0)
+                    Matrix.scaleM(scratchMatrix, 0, glbRootBaseScale, glbRootBaseScale, glbRootBaseScale)
+                    Matrix.translateM(scratchMatrix, 0, glbRootCenterOffset[0], glbRootCenterOffset[1], glbRootCenterOffset[2])
+                    tm.setTransform(rootInst, scratchMatrix)
                 }
-                val ti = tm.getInstance(node.entity)
-                if (ti != 0) {
-                    if (explode <= 0.001f) {
-                        tm.setTransform(ti, node.baseMatrix)
-                    } else {
-                        val m = node.baseMatrix.copyOf()
-                        m[12] += node.explodeOffset[0] * explode
-                        m[13] += node.explodeOffset[1] * explode
-                        m[14] += node.explodeOffset[2] * explode
-                        tm.setTransform(ti, m)
+                glbTransformsDirty = false
+            }
+
+            val hiddenSet = targetHiddenGlbEntities
+            val sysChanged = lastGlbSystem != targetSystem || lastGlbHidden != hiddenSet
+            val expChanged = kotlin.math.abs(lastGlbExplode - explode) > 0.0005f
+
+            if (sysChanged || expChanged) {
+                val hasMatchingSystem = targetSystem == AnatomySystem.ALL ||
+                    glbNodes.any { it.system == targetSystem }
+
+                for (node in glbNodes) {
+                    if (sysChanged) {
+                        val ri = rm.getInstance(node.entity)
+                        if (ri != 0) {
+                            val sysMatch = targetSystem == AnatomySystem.ALL ||
+                                !hasMatchingSystem ||
+                                node.system == AnatomySystem.ALL ||
+                                node.system == targetSystem
+                            val vis = sysMatch && (node.entity !in hiddenSet)
+                            rm.setLayerMask(ri, 0xFF, if (vis) 0xFF else 0x00)
+                        }
+                    }
+                    if (expChanged) {
+                        val ti = tm.getInstance(node.entity)
+                        if (ti != 0) {
+                            if (explode <= 0.001f) {
+                                tm.setTransform(ti, node.baseMatrix)
+                            } else {
+                                System.arraycopy(node.baseMatrix, 0, scratchMatrix, 0, 16)
+                                scratchMatrix[12] += node.explodeOffset[0] * explode
+                                scratchMatrix[13] += node.explodeOffset[1] * explode
+                                scratchMatrix[14] += node.explodeOffset[2] * explode
+                                tm.setTransform(ti, scratchMatrix)
+                            }
+                        }
                     }
                 }
+                lastGlbSystem = targetSystem
+                lastGlbHidden = hiddenSet
+                lastGlbExplode = explode
             }
         } else {
             // Render real-time ML Kit Pose3D articulated model
@@ -1369,6 +1428,9 @@ private class FilamentSceneController(
             if (headRootEntity != 0) eng.destroyEntity(headRootEntity)
             if (lightEntity != 0) eng.destroyEntity(lightEntity)
             if (fillLightEntity != 0) eng.destroyEntity(fillLightEntity)
+            if (rimLightEntity != 0) eng.destroyEntity(rimLightEntity)
+            indirectLight?.let { eng.destroyIndirectLight(it) }
+            indirectLight = null
             materialProvider?.destroyMaterials()
             renderer?.let { eng.destroyRenderer(it) }
             view?.let { eng.destroyView(it) }

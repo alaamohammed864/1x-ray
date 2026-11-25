@@ -147,12 +147,19 @@ object GlbModelRepository {
     private fun cleanDisplayName(fileName: String): String {
         val stem = fileName.substringBeforeLast('.')
         return when {
+            stem.equals("dolasim", true) -> "الجهاز الدوري"
+            stem.equals("eklem", true) -> "المفاصل والأربطة"
+            stem.equals("ic-organlar", true) -> "الأعضاء الداخلية"
+            stem.equals("iskelet", true) -> "الهيكل العظمي"
+            stem.equals("kas", true) -> "الجهاز العضلي"
+            stem.equals("lenf", true) -> "الجهاز اللمفاوي"
+            stem.equals("sinir", true) -> "الجهاز العصبي"
             stem.contains("heart", true) || stem.contains("kalp", true) || stem.contains("biv", true) -> "القلب ($stem)"
-            stem.contains("brain", true) || stem.contains("beyin", true) || stem.contains("sinir", true) || stem.contains("nerv", true) -> "الجهاز العصبي والدماغ ($stem)"
+            stem.contains("brain", true) || stem.contains("beyin", true) || stem.contains("sinir", true) || stem.contains("nerv", true) -> "الجهاز العصبي ($stem)"
             stem.contains("lenf", true) || stem.contains("lymph", true) -> "الجهاز اللمفاوي ($stem)"
             stem.contains("lung", true) || stem.contains("akciger", true) || stem.contains("solunum", true) || stem.contains("respir", true) -> "الجهاز التنفسي ($stem)"
             stem.contains("liver", true) || stem.contains("karaciger", true) -> "الكبد ($stem)"
-            stem.contains("kidney", true) || stem.contains("bobrek", true) || stem.contains("bosaltim", true) || stem.contains("urin", true) -> "الجهاز البولي والكلى ($stem)"
+            stem.contains("kidney", true) || stem.contains("bobrek", true) || stem.contains("bosaltim", true) || stem.contains("urin", true) -> "الجهاز البولي ($stem)"
             stem.contains("sindirim", true) || stem.contains("digest", true) || stem.contains("mide", true) || stem.contains("stomach", true) -> "الجهاز الهضمي ($stem)"
             stem.contains("ureme", true) || stem.contains("reprod", true) -> "الجهاز التناسلي ($stem)"
             stem.contains("endokrin", true) || stem.contains("endocrin", true) -> "الغدد الصماء ($stem)"
