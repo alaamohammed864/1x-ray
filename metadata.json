@@ -1,0 +1,6 @@
+{
+  "name": "عدسة التشريح",
+  "description": "تطبيق تشريحي تعليمي تفاعلي ثلاثي الأبعاد يعمل بالكاميرا دون اتصال بالإنترنت.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

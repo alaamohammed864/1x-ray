@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">عدسة التشريح</string>
+    <string name="app_full_title">عدسة التشريح التفاعلية</string>
+    <string name="disclaimer_banner">نموذج تشريحي تعليمي وليس أشعة حقيقية ولا فحصًا طبيًا؛ مواضع الأعضاء تقريبية.</string>
+    <string name="onboarding_subtitle">قف أمام الكاميرا على بُعد متر إلى مترين. يظهر الهيكل والأعضاء والعضلات على جسمك مباشرة.</string>
+    <string name="offline_ready_badge">يعمل دون اتصال بالإنترنت 100% — النماذج مدمجة محليًا</string>
+    <string name="start_camera">ابدأ الكاميرا</string>
+    <string name="camera_permission_title">مطلوب إذن الكاميرا</string>
+    <string name="camera_permission_denied">تم رفض إذن الكاميرا. فعّل الكاميرا من إعدادات التطبيق ثم أعد المحاولة.</string>
+    <string name="open_settings">فتح الإعدادات</string>
+    <string name="search_hint">ابحث: ركبة، الكبد…</string>
+    <string name="toggle_controls_hide">إخفاء القائمة</string>
+    <string name="toggle_controls_show">إظهار القائمة</string>
+</resources>

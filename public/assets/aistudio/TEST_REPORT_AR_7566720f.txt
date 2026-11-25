@@ -1,0 +1,26 @@
+تقرير اختبار حزمة xray-mirror-v3 Android Offline
+
+PASS: JavaScript المضمّن — node --check
+PASS: sw.js — node --check
+PASS: manifest.webmanifest — JSON parse
+PASS: HTML — Python HTMLParser
+PASS: وجود وظائف التحكم الأساسية: start, camera switch, snapshot, recording, calibration, tour, search, offline cache check
+
+NOT TESTED (requires physical Android device + camera + online asset fetch):
+- Camera permission and front/back camera switching
+- MediaPipe model downloads and GPU/CPU delegate on target device
+- Live pose/face/hand accuracy and segmentation
+- Screenshot download, MediaRecorder output, calibration persistence
+- Cold start with airplane mode after full first online run
+- Sustained FPS, thermal throttling, memory pressure and Android storage eviction
+
+Important: no third-party model/runtime binaries could be downloaded in this build environment. The package caches them after first online use; it is not a fully self-contained APK with bundled model assets.
+
+
+اختبارات تحديث الأيقونات والهوية البصرية
+PASS: JavaScript المضمّن بعد إضافة الأيقونات — node --check
+PASS: بنية SVG — جميع مراجع use تشير إلى symbol موجود
+PASS: أيقونات PWA — PNG بدقتي 192×192 و512×512
+PASS: ملف SVG المتجهي icon.svg موجود داخل الحزمة
+PASS: ZIP — فحص سلامة جميع الملفات
+NOT TESTED: المعاينة البصرية على مجموعة أحجام هواتف فعلية وإصدارات Android مختلفة.

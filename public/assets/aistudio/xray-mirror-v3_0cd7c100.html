@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#050b14"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="manifest" href="./manifest.webmanifest">
+<title>مرآة الأشعة التعليمية</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--ac:#5fd0ff;--bg:#050b14}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:#000;color:#fff;font-family:Tajawal,sans-serif;overflow:hidden;overscroll-behavior:none}
+#st{position:fixed;inset:0;touch-action:none;overflow:hidden;background:#000}
+video,canvas{position:absolute;inset:0;width:100%;height:100%}
+video{object-fit:cover}
+.chip{position:absolute;inset-inline-start:8px;background:#000b;border:1px solid #5fd0ff55;padding:3px 10px;border-radius:14px;font-size:14px;max-width:92%;pointer-events:none}
+#note{position:absolute;top:0;left:0;right:0;padding:calc(3px + env(safe-area-inset-top)) 8px 3px;background:#000c;font-size:12px;text-align:center;pointer-events:none}
+#card{position:absolute;inset-inline:12px;top:calc(166px + env(safe-area-inset-top));background:#06121fee;border:1px solid var(--ac);border-radius:12px;padding:10px 14px;display:none;font-size:16px;line-height:1.5;pointer-events:none}
+#card small{color:var(--ac);margin-inline-start:6px}#card i{color:#ffcf6b;font-size:13px}
+#rt{display:none;color:#ff7777;border-color:#ff777788}
+#sheet{position:fixed;left:0;right:0;bottom:0;background:#07101cf2;border-top:1px solid #5fd0ff66;padding:6px 8px calc(8px + env(safe-area-inset-bottom));max-height:46vh;overflow:auto;z-index:5}
+#sheet.min>.body{display:none}
+.row{display:flex;gap:6px;overflow-x:auto;padding:4px 0;align-items:center}
+button,select,input{font:inherit;font-size:15px;min-height:44px;border-radius:10px;border:1px solid #5fd0ff77;background:#0d1f33;color:#fff;padding:0 12px;flex:none}
+button.on{background:var(--ac);color:#001018;font-weight:700}
+input[type=range]{padding:0;min-height:30px;width:110px}
+label{font-size:13px;flex:none;display:flex;flex-direction:column}
+#q{width:150px}
+#go{position:fixed;inset:0;z-index:9;background:var(--bg);display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;text-align:center;padding:24px}
+#go h1{font-size:28px}#start{font-size:22px;min-height:64px;padding:0 36px;background:var(--ac);color:#001018;font-weight:700}
+#msg{font-size:15px;color:#ffcf6b;max-width:420px;line-height:1.6}
+
+button{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;letter-spacing:.05px;box-shadow:inset 0 1px 0 #ffffff0d,0 3px 10px #0005;transition:background .18s,border-color .18s,transform .18s,box-shadow .18s}
+button:active{transform:scale(.97)}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #8ce3ff;outline-offset:2px}
+button.on{border-color:#9be8ff;box-shadow:0 0 0 1px #5fd0ff35,0 0 14px #25baff25,inset 0 1px 0 #ffffff55}
+.ui-ico{width:19px;height:19px;flex:0 0 19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.96}
+#zones button .ui-ico{width:17px;height:17px;flex-basis:17px}
+#tg{min-width:100%;background:linear-gradient(100deg,#10283d,#0a1727);border-color:#5fd0ff55}
+#start{display:inline-flex;align-items:center;gap:12px;border-radius:16px;box-shadow:0 0 28px #24baff35,inset 0 1px 0 #fff8}
+#start .ui-ico{width:25px;height:25px;flex-basis:25px}
+#go h1{letter-spacing:.2px;text-shadow:0 0 20px #5fd0ff55}
+#go .brand-mark{width:76px;height:76px;border-radius:24px;display:grid;place-items:center;background:radial-gradient(circle at 35% 25%,#1c5375,#071526 68%);border:1px solid #5fd0ff88;box-shadow:0 0 35px #1aaeff35,inset 0 0 20px #5fd0ff18;margin-bottom:2px}
+#go .brand-mark .ui-ico{width:58px;height:58px;stroke:#a8eaff;stroke-width:1.35;filter:drop-shadow(0 0 5px #27c6ff)}
+#q{padding-inline-start:38px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%238bdfff' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='10.8' cy='10.8' r='6.8'/%3E%3Cpath d='m16 16 5 5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:18px}
+select{appearance:none;padding-inline:12px 34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235fd0ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:left 10px center}
+@media(max-width:420px){button,select,input{font-size:14px;padding-inline:10px}.ui-ico{width:18px;height:18px;flex-basis:18px}.row{gap:5px}}
+
+</style></head><body>
+<svg id="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+<symbol id="ico-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+<symbol id="ico-bones" viewBox="0 0 24 24"><path d="M9 4a2.5 2.5 0 1 0-3 3l9 10a2.5 2.5 0 1 0 3-3L9 4Z"/><path d="M6 7 4.5 8.5M17 16l2.5-2.5"/></symbol>
+<symbol id="ico-organs" viewBox="0 0 24 24"><path d="M12 3c-2 0-3 2-3 4v2c-3 1-5 4-4 8 1 3 4 4 7 2 3 2 6 1 7-2 1-4-1-7-4-8V7c0-2-1-4-3-4Z"/><path d="M12 9v9M9 13c1 1 2 1 3 0 1 1 2 1 3 0"/></symbol>
+<symbol id="ico-muscle" viewBox="0 0 24 24"><path d="M5 18c2-1 2-4 3-7l3-4 2 3 3-1 3 4c1 2 0 5-3 6H7c-1 0-2 0-2-1Z"/><path d="m9 11 3 3 4-3M7 17l10-1"/></symbol>
+<symbol id="ico-scan" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><circle cx="12" cy="12" r="4"/><path d="M12 6v2M12 16v2M6 12h2M16 12h2"/></symbol>
+<symbol id="ico-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></symbol>
+<symbol id="ico-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21V5.5Z"/><path d="M4 18.5A2.5 2.5 0 0 1 6.5 16H20M8 7h8M8 10h7"/></symbol>
+<symbol id="ico-camera" viewBox="0 0 24 24"><path d="M4 7h3l2-3h6l2 3h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"/></symbol>
+<symbol id="ico-switch" viewBox="0 0 24 24"><path d="M4 7h13l-3-3M20 17H7l3 3"/><path d="M17 4v6M7 14v6"/></symbol>
+<symbol id="ico-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></symbol>
+<symbol id="ico-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 3 3 3-4 5 6"/></symbol>
+<symbol id="ico-labels" viewBox="0 0 24 24"><path d="M4 5h10M4 10h7M4 15h10M4 20h7M17 5l3 3-3 3M20 8h-5"/></symbol>
+<symbol id="ico-view" viewBox="0 0 24 24"><path d="M3 12s3-6 9-6 9 6 9 6-3 6-9 6-9-6-9-6Z"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v2M12 20v2"/></symbol>
+<symbol id="ico-cut" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/><path d="M10 7h4M7 10v4M17 10v4M10 17h4"/></symbol>
+<symbol id="ico-ruler" viewBox="0 0 24 24"><path d="m3 16 13-13 5 5L8 21H3v-5Z"/><path d="m13 6 5 5M10 9l2 2M7 12l2 2"/></symbol>
+<symbol id="ico-record" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5" fill="currentColor" stroke="none"/></symbol>
+<symbol id="ico-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
+<symbol id="ico-fullscreen" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></symbol>
+<symbol id="ico-flip" viewBox="0 0 24 24"><path d="M4 8a8 8 0 0 1 14-3l2 2M20 4v3h-3M20 16a8 8 0 0 1-14 3l-2-2M4 20v-3h3"/></symbol>
+<symbol id="ico-wifi" viewBox="0 0 24 24"><path d="M2 8a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 20h.01"/></symbol>
+<symbol id="ico-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+<symbol id="ico-brand" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27"/><path d="M32 12v39M18 23l14 5 14-5M18 23l-5 18M46 23l5 18M22 51l10-13 10 13"/><circle cx="32" cy="12" r="5"/><rect x="26" y="27" width="12" height="9" rx="3"/></symbol>
+</svg>
+<div id="st"><video id="v" playsinline muted autoplay></video><canvas id="c"></canvas>
+<div id="note">نموذج تشريحي تعليمي وليس أشعة حقيقية ولا فحصًا طبيًا؛ مواضع الأعضاء تقريبية.</div>
+<div class="chip" id="stat" style="top:calc(30px + env(safe-area-inset-top))">…</div>
+<div class="chip" id="rec" style="top:calc(62px + env(safe-area-inset-top))"></div>
+<div class="chip" id="cnt" style="top:calc(94px + env(safe-area-inset-top))"></div>
+<div class="chip" id="rt" style="top:calc(126px + env(safe-area-inset-top))"></div>
+<div class="chip" id="net" style="top:calc(158px + env(safe-area-inset-top))">حالة التخزين: جارٍ الفحص…</div>
+<div id="card"></div></div>
+<div id="sheet"><div class="row"><button id="tg">إخفاء/إظهار القائمة ⌄</button></div><div class="body">
+<div class="row" id="zones"></div>
+<div class="row">
+<select id="sys"><option value="all">كل الأنظمة</option><option value="bones">الهيكل العظمي</option><option value="organs">الأعضاء</option><option value="muscles">العضلات</option></select>
+<select id="look"><option value="x">أشعة</option><option value="m">نموذج ملوّن</option></select>
+<select id="mode"><option value="full">عرض كامل</option><option value="lens">عدسة الأشعة</option><option value="scan">مسح</option></select>
+<label>ظهور جسمي<input type="range" id="keep" min="0" max="100" value="25"></label>
+<label>حجم العدسة<input type="range" id="lensr" min="8" max="40" value="18"></label></div>
+<div class="row"><input id="q" placeholder="ابحث: ركبة، الكبد…"><button id="offlineb">فحص العمل دون إنترنت</button><button id="tour">جولة تعليمية</button><button id="cam">تبديل الكاميرا</button><button id="dbg">نقاط التتبع</button><button id="shot">لقطة</button></div>
+<div class="row"><button id="labb" class="on">الأسماء: تشغيل</button><button id="viewb">العرض: تلقائي</button><button id="segb">قص داخل الجسم: إيقاف</button><button id="calb">معايرة جسمي</button><button id="recb">● تسجيل</button><button id="stageb">المسرح: ملء الشاشة</button><button id="flipb">عكس الدوران: إيقاف</button></div>
+</div></div>
+<div id="go"><div class="brand-mark"><svg class="ui-ico" viewBox="0 0 64 64"><use href="#ico-brand"></use></svg></div><h1>مرآة الأشعة التعليمية</h1><p>قف أمام الكاميرا على بُعد متر إلى مترين. يظهر الهيكل والأعضاء والعضلات على جسمك مباشرة.</p><button id="start">ابدأ الكاميرا</button><p id="msg"></p></div>
+<script type="module">
+const $=s=>document.querySelector(s);
+const icon=(name)=>`<svg class="ui-ico" aria-hidden="true"><use href="#ico-${name}"></use></svg>`;
+function setBtn(id,name,label,active){const b=typeof id==='string'?$('#'+id):id;if(!b)return;b.innerHTML=icon(name)+`<span>${label}</span>`;if(active!==undefined)b.classList.toggle('on',!!active)}
+const buttonIcons={tg:'menu',offlineb:'wifi',tour:'book',cam:'switch',dbg:'target',shot:'image',labb:'labels',viewb:'view',segb:'cut',calb:'ruler',recb:'record',stageb:'fullscreen',flipb:'flip',start:'camera'};
+for(const [id,name] of Object.entries(buttonIcons)){const b=$('#'+id);if(b)setBtn(id,name,b.textContent.trim(),b.classList.contains('on'));}
+
+const vid=$('#v'),cv=$('#c'),st=$('#st');
+let cx=cv.getContext('2d');const cx0=cx;
+const ac=document.createElement('canvas'),acx=ac.getContext('2d');   // طبقة التشريح للقص داخل الجسم
+const mc=document.createElement('canvas'),mcx=mc.getContext('2d');   // قناع الجسم (صغير)
+const rc=document.createElement('canvas'),rcx=rc.getContext('2d');   // لوحة التسجيل
+const MOB=/Android/i.test(navigator.userAgent);
+const V='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+const G='https://storage.googleapis.com/mediapipe-models/';
+const U={face:G+'face_landmarker/face_landmarker/float16/1/face_landmarker.task',hands:G+'hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',pose:G+'pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task'};
+const S={sys:'all',look:'x',mode:'full',iso:'all',keep:.25,lens:.18,dbg:false,front:true,labels:true,view:'auto',seg:false,stage:'auto',flip:false};
+const minLvl=MOB?1:0;
+let M,vis,mods={},del='GPU',lvl=minLvl,dpr=1,stream,touch=null,failed=[],swit=false,errN=0,wl=null,rvfc=false;
+let pl=null,plMiss=0,fl=null,flMiss=0,HL=[],hlMiss=0,pd=null,fd=null;
+let pp=[],ff=null,HA={R:null,L:null},HC=null,HS=0,g={},VP=[],hl=null,hlT=0,tourOn=false,tourI=0,tourT=0,cardT=0,NOW=0;
+let SW=innerWidth,SH=innerHeight;
+// الدوران ثلاثي الأبعاد والمعايرة والعرض الخلفي والقناع والتسجيل
+let pwy=null,wxsAcc=.5,YAW={c:1,s:0},rWf=.8,WfOK=false,WfN=0,TF=null,BACK=false;
+let CAL=null,cal={st:0,t0:0,t1:0,s:null};
+let maskOK=false,segN=0,maskImg=null;
+let recOn=false,recPend=false,recCd=0,recStart=0,mr=null,chunks=[],recMime='';
+const hold={};
+const msg=t=>$('#msg').textContent=t;
+// تخزين الموارد التي يجلبها MediaPipe محلياً بعد أول تشغيل متصل بالإنترنت.
+let swReady=false;
+function offlineInfo(){const el=$('#net');if(!el)return;const secure=window.isSecureContext;const state=navigator.onLine?'متصل':'دون اتصال';el.textContent=(secure?'آمن':'يلزم HTTPS')+' · '+state+' · '+(swReady?'التخزين المحلي مفعّل':'جارٍ تفعيل التخزين');}
+if('serviceWorker' in navigator && window.isSecureContext){navigator.serviceWorker.register('./sw.js',{scope:'./'}).then(()=>{swReady=true;offlineInfo()}).catch(()=>{swReady=false;offlineInfo()});navigator.serviceWorker.addEventListener('controllerchange',()=>{swReady=true;offlineInfo()});}
+addEventListener('online',offlineInfo);addEventListener('offline',offlineInfo);
+async function cacheInfo(){try{const c=await caches.open('xray-runtime-v1');const keys=await c.keys();const shell=await caches.open('xray-shell-v1');const sk=await shell.keys();toast('الموارد المحفوظة: '+keys.length+' مورد خارجي، و'+sk.length+' من ملفات التطبيق. افتح التطبيق مرة متصلة وانتظر اكتمال تحميل النماذج قبل فصل الإنترنت.');}catch(e){toast('التخزين المحلي غير متاح. ثبّت التطبيق من HTTPS وافتحه عبر Chrome.')}}
+$('#offlineb').onclick=cacheInfo;
+offlineInfo();
+let lastStat='';const stat=t=>{if(t!==lastStat){lastStat=t;$('#stat').textContent=t}};
+function toast(t){const c=$('#card');c.style.display='block';c.textContent=t;hl=null;cardT=performance.now()+4500}
+const say=t=>{msg(t);toast(t)};
+try{const s=localStorage.getItem('xrcal');if(s)CAL=JSON.parse(s)}catch(e){}
+// ---------- المسرح (ملء الشاشة / 16:9 / 9:16) ----------
+function layout(){const ww=innerWidth,wh=innerHeight;let w=ww,h=wh;
+ if(S.stage==='16:9'){w=Math.min(ww,wh*16/9);h=w*9/16}else if(S.stage==='9:16'){h=Math.min(wh,ww*16/9);w=h*9/16}
+ if(S.stage==='auto'){st.style.cssText=''}else{st.style.inset='auto';st.style.left=((ww-w)/2)+'px';st.style.top=((wh-h)/2)+'px';st.style.width=w+'px';st.style.height=h+'px'}
+ SW=w;SH=h}
+addEventListener('resize',layout);addEventListener('orientationchange',()=>setTimeout(layout,200));layout();
+// ---------- zones ----------
+const ZK={neck:[0,11,12],torso:[11,12,23,24],pelvis:[23,24],aR:[12,14],aL:[11,13],fR:[14,16],fL:[13,15],thR:[24,26],thL:[23,25],shR:[26,28],shL:[25,27],ftR:[28,32,30],ftL:[27,31,29]};
+const Z={head:{on:0,a:0},hR:{on:0,a:0},hL:{on:0,a:0}};for(const k in ZK)Z[k]={on:0,a:0};
+const ZN={head:'الرأس',neck:'الرقبة',torso:'الجذع',pelvis:'الحوض',aR:'العضد الأيمن',aL:'العضد الأيسر',fR:'الساعد الأيمن',fL:'الساعد الأيسر',hR:'اليد اليمنى',hL:'اليد اليسرى',thR:'الفخذ الأيمن',thL:'الفخذ الأيسر',shR:'الساق اليمنى',shL:'الساق اليسرى',ftR:'القدم اليمنى',ftL:'القدم اليسرى'};
+const GL=[['all','كامل الجسم'],['head','الرأس'],['neck','الرقبة'],['shoulders','الكتفان'],['chest','الصدر'],['abdomen','البطن'],['back','الظهر'],['pelvis','الحوض'],['arms','العضدان'],['forearms','الساعدان'],['hands','اليدان'],['thighs','الفخذان'],['shins','الساقان'],['feet','القدمان']];
+GL.forEach(([k,t])=>{const b=document.createElement('button');const zi=k==='all'?'scan':k==='head'?'target':k==='neck'?'view':k==='shoulders'||k==='chest'||k==='abdomen'||k==='back'||k==='pelvis'?'organs':k==='arms'||k==='forearms'||k==='thighs'||k==='shins'?'muscle':k==='hands'?'bones':'scan';setBtn(b,zi,t,k==='all');b.dataset.k=k;b.onclick=()=>{S.iso=k;document.querySelectorAll('#zones button').forEach(x=>x.classList.toggle('on',x.dataset.k==k))};$('#zones').appendChild(b)});
+const inF=p=>p.x>-.03&&p.x<1.03&&p.y>-.03&&p.y<1.03;
+function updZ(k,ok){const z=Z[k];z.on=ok;z.a+=((ok?1:0)-z.a)*.18}
+function zones(){
+ for(const k in ZK){let m=1,ok=!!pl;if(pl)for(const i of ZK[k]){m=Math.min(m,pl[i].v);if(!inF(pl[i]))ok=false}
+  updZ(k,ok&&m>=(Z[k].on?.4:.6))}
+ const earsOK=!!pl&&pl[7].v>=.5&&pl[8].v>=.5&&inF(pl[7])&&inF(pl[8]);
+ updZ('head',!!ff||(!!pl&&((pl[0].v>=.5&&inF(pl[0]))||earsOK)));
+ updZ('hR',!!HA.R||(!!pl&&pl[16].v>=.5&&inF(pl[16])));updZ('hL',!!HA.L||(!!pl&&pl[15].v>=.5&&inF(pl[15])));
+}
+// ---------- geometry ----------
+function geom(){const W=cv.width,H=cv.height,vw=vid.videoWidth||1,vh=vid.videoHeight||1,s=Math.max(W/vw,H/vh);g={W,H,vw,vh,s,ox:(W-vw*s)/2,oy:(H-vh*s)/2}}
+const P=p=>({x:g.ox+(S.front?1-p.x:p.x)*g.vw*g.s,y:g.oy+p.y*g.vh*g.s,v:p.v});
+const D=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),mid=(a,b)=>a&&b?{x:(a.x+b.x)/2,y:(a.y+b.y)/2}:null;
+const lp=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
+// نقطة جسم مرئية؛ إذا اختفت تبقى آخر نقطة 0.4 ثانية ليتلاشى النموذج بدل أن يختفي فجأة
+const pv=i=>{const q=pl&&pl[i];if(q&&q.v>=.5&&inF(q)&&pp[i]){hold[i]={p:pp[i],t:NOW};return pp[i]}const h=hold[i];return h&&NOW-h.t<400?h.p:null};
+const sw=()=>{const a=pv(12),b=pv(11);return a&&b?D(a,b):0};
+// إطار الجذع ثلاثي الأبعاد: T3(a,b,df) نقطة على الجذع (a: عرضيًا 0=الكتف الأيمن 1=الأيسر، b: طوليًا 0=الكتفان 1=الوركان، df: العمق كجزء من عرض الكتفين، موجب=الأمام)
+const T3=(a,b,df=0)=>{if(!TF)return null;const A=TF.A,B=TF.B,C=TF.C,E=TF.E;
+ const x1=A.x+(B.x-A.x)*a,y1=A.y+(B.y-A.y)*a,x2=C.x+(E.x-C.x)*a,y2=C.y+(E.y-C.y)*a,k=df*TF.Wf*TF.s;
+ return {x:x1+(x2-x1)*b+TF.e.x*k,y:y1+(y2-y1)*b+TF.e.y*k}};
+const rwid=()=>TF?Math.max(TF.Wf*Math.abs(TF.c),TF.Wf*.35):0;
+function updYaw(){
+ if(!pwy||!pl)return;
+ const idx=pl[11].x-pl[12].x;let dx=pwy.dx,dz=pwy.dz;
+ if(pwy.hv>=.5){dx+=pwy.hdx*.6;dz+=pwy.hdz*.6}
+ // اكتشاف اتجاه محور x في الإحداثيات العالمية مقارنة بالصورة (يعكس z أيضًا إذا انعكس x)
+ if(Math.abs(idx)>.04&&Math.abs(pwy.dx)>.05)wxsAcc+=((Math.sign(idx)*Math.sign(pwy.dx))-wxsAcc)*.05;
+ const wxs=wxsAcc>=0?1:-1;dx*=wxs;dz*=wxs;if(S.flip)dz=-dz;
+ const n=Math.hypot(dx,dz)||1;
+ YAW.c+=(dx/n-YAW.c)*.4;YAW.s+=(dz/n-YAW.s)*.4;
+ const m=Math.hypot(YAW.c,YAW.s)||1;YAW.c/=m;YAW.s/=m}
+function buildTF(){
+ TF=null;const A=pv(12),B=pv(11),C=pv(24),E=pv(23);if(!(A&&B&&C&&E))return;
+ const SM=mid(A,B),HM=mid(C,E),L=D(SM,HM);if(L<8)return;
+ const vx=(HM.x-SM.x)/L,vy=(HM.y-SM.y)/L,sg=S.front?-1:1,e={x:vy*sg,y:-vx*sg};
+ if(CAL&&CAL.rW){rWf=CAL.rW;WfOK=true}
+ else if(Math.abs(YAW.c)>.85){const raw=D(A,B)/(Math.abs(YAW.c)*L);rWf=Math.min(1.2,Math.max(.5,rWf+(raw-rWf)*.08));if(++WfN>20)WfOK=true}
+ let c=YAW.c,s=YAW.s;
+ if(!pwy){ // بديل بلا إحداثيات عالمية: الاتجاه من إزاحة الأنف
+  const nz=pv(0);const cm=WfOK?Math.min(1,D(A,B)/(rWf*L)):1;let off=0;
+  if(nz)off=((nz.x-SM.x)*e.x+(nz.y-SM.y)*e.y)/(rWf*L);
+  c=cm;s=Math.sign(off||1)*Math.sqrt(Math.max(0,1-cm*cm))}
+ else if(WfOK){ // دمج مقدار الدوران من الصورة مع اتجاهه من العمق
+  const rr=Math.min(1,D(A,B)/(rWf*L)),cm=.5*Math.abs(c)+.5*rr;
+  c=(c<0?-1:1)*cm;s=(s<0?-1:1)*Math.sqrt(Math.max(0,1-cm*cm))}
+ TF={A,B,C,E,SM,HM,L,e,Wf:rWf*L,c,s};
+ // العرض الخلفي: ترتيب الكتفين معكوس ولا يوجد وجه
+ if(S.view==='f')BACK=false;else if(S.view==='b')BACK=true;
+ else{if(!BACK&&c<-.35&&!fl)BACK=true;else if(BACK&&(c>-.1||fl))BACK=false}}
+// ---------- كتالوج الأجزاء (~70) ----------
+const parts=[];const add=(ar,en,f,ap,fn,grp,pri,view)=>parts.push({ar,en,f,ap,fn,grp,pri,view});
+const sd=(m,r)=>m?(r?'الأيمن':'الأيسر'):(r?'اليمنى':'اليسرى'); // m = اسم مذكّر
+const tp=(a,b,r,df)=>()=>{const p=T3(a,b,df||0);return p&&[p,rwid()*r]};
+add('الجمجمة','Skull','تتكوّن الجمجمة من 22 عظمة (8 للقحف و14 للوجه).',0,()=>HC&&[HC,HS*.45],'head',1);
+add('الجبهة','Frontal bone','العظم الجبهي يحمي الجزء الأمامي من الدماغ.',0,()=>ff&&[ff[9],HS*.14],'head');
+add('العين اليمنى','Right eye','تحرّك كل عين ست عضلات خارجية.',0,()=>ff&&[mid(ff[159],ff[145]),HS*.07],'head');
+add('العين اليسرى','Left eye','تحرّك كل عين ست عضلات خارجية.',0,()=>ff&&[mid(ff[386],ff[374]),HS*.07],'head');
+add('الأنف','Nose','الجزء العلوي من الأنف عظمي والسفلي غضروفي.',0,()=>ff&&[ff[1],HS*.08],'head');
+add('الخد الأيمن','Zygomatic bone','عظم الوجنة هو ما يشكّل بروز الخد.',0,()=>ff&&[ff[205],HS*.09],'head');
+add('الخد الأيسر','Zygomatic bone','عظم الوجنة هو ما يشكّل بروز الخد.',0,()=>ff&&[ff[425],HS*.09],'head');
+add('الفم','Mouth','في فم البالغ 32 سنًّا.',0,()=>ff&&[ff[13],HS*.1],'head');
+add('الذقن والفك السفلي','Mandible','الفك السفلي هو العظم المتحرك الوحيد في الجمجمة (عدا عظيمات الأذن).',0,()=>ff&&[ff[152],HS*.12],'head');
+add('الأذن اليمنى','Right ear','في الأذن الوسطى أصغر عظام الجسم.',0,()=>{const p=pv(8);return p&&[p,(HS||sw()*.5||30)*.1]},'head');
+add('الأذن اليسرى','Left ear','في الأذن الوسطى أصغر عظام الجسم.',0,()=>{const p=pv(7);return p&&[p,(HS||sw()*.5||30)*.1]},'head');
+add('الرقبة','Neck','في الرقبة 7 فقرات عنقية.',1,()=>{const a=pv(0)||HC,m=mid(pv(11),pv(12));return a&&m&&[lp(a,m,.6),(TF?TF.Wf:sw())*.17]},'neck',2);
+add('القفص الصدري','Rib cage','القفص الصدري فيه 12 زوجًا من الأضلاع.',1,tp(.5,.22,.33),'chest',3);
+add('عظم القص','Sternum','تتصل غضاريف الأضلاع العلوية بعظم القص في الأمام.',1,tp(.5,.2,.06,.27),'chest',0,'f');
+add('القلب','Heart','القلب بحجم قبضة اليد تقريبًا ويميل قليلًا إلى اليسار.',1,tp(.62,.26,.1,.08),'chest',4);
+add('الرئة اليمنى','Right lung','الرئة اليمنى فيها ثلاثة فصوص.',1,tp(.3,.2,.17,-.02),'chest',5);
+add('الرئة اليسرى','Left lung','الرئة اليسرى فيها فصّان.',1,tp(.72,.2,.15,-.02),'chest',6);
+add('الحجاب الحاجز','Diaphragm','الحجاب الحاجز عضلة قبّة تفصل الصدر عن البطن وتساعد على التنفس.',1,tp(.5,.33,.3),'chest');
+add('العضلة الصدرية الكبرى','Pectoralis major','تقرّب العضلة الصدرية الكبرى الذراع من الجسم وتدوّرها إلى الداخل.',1,tp(.5,.14,.3,.25),'chest',0,'f');
+add('الكبد','Liver','الكبد أكبر عضو داخلي في الجسم.',1,tp(.3,.46,.17,.03),'abdomen',7);
+add('المعدة','Stomach','تهضم المعدة الطعام بمساعدة الحمض والإنزيمات.',1,tp(.68,.46,.12,.05),'abdomen',8);
+add('الطحال','Spleen','يقع الطحال في أعلى يسار البطن ويشارك في تصفية الدم.',1,tp(.82,.42,.07,-.12),'abdomen');
+add('الأمعاء','Intestines','طول الأمعاء الدقيقة عدة أمتار.',1,tp(.5,.74,.25,.05),'abdomen',10);
+add('العضلة المستقيمة البطنية','Rectus abdominis','العضلة المستقيمة البطنية تثني الجذع وهي التي تظهر كحزم مقسّمة عند الرياضيين.',1,tp(.5,.55,.14,.27),'abdomen',0,'f');
+add('الكلية اليمنى','Right kidney','في الجسم كليتان تقعان خلف تجويف البطن على جانبي العمود الفقري.',1,tp(.36,.5,.06,-.17),'back',8.6);
+add('الكلية اليسرى','Left kidney','في الجسم كليتان تقعان خلف تجويف البطن على جانبي العمود الفقري.',1,tp(.64,.5,.06,-.17),'back',8.7);
+add('العمود الفقري','Spine','فيه 7 فقرات عنقية و12 صدرية و5 قطنية.',1,tp(.5,.5,.07,-.22),'back',9);
+add('اللوح الأيمن','Right scapula','لوح الكتف عظم مثلثي مسطح في أعلى الظهر يتمفصل مع عظم العضد.',1,tp(.27,.14,.1,-.27),'back',5.5,'b');
+add('اللوح الأيسر','Left scapula','لوح الكتف عظم مثلثي مسطح في أعلى الظهر يتمفصل مع عظم العضد.',1,tp(.73,.14,.1,-.27),'back',5.6,'b');
+add('العضلة شبه المنحرفة','Trapezius','تمتد العضلة شبه المنحرفة من قاعدة الجمجمة إلى منتصف الظهر وتحرّك لوح الكتف.',1,tp(.5,.14,.25,-.25),'back',4.5,'b');
+add('العضلة الظهرية العريضة','Latissimus dorsi','العضلة الظهرية العريضة من أكبر عضلات الظهر وتسحب الذراع نحو الجسم.',1,tp(.5,.45,.3,-.25),'back',6.5,'b');
+add('العجز','Sacrum','العجز عظم مثلثي ينتج عن التحام خمس فقرات.',1,tp(.5,.97,.07,-.17),'pelvis');
+add('العضلة الألوية الكبرى','Gluteus maximus','العضلة الألوية الكبرى من أكبر عضلات الجسم.',1,tp(.5,1.08,.3,-.2),'pelvis',6.6,'b');
+add('المثانة','Bladder','تخزّن المثانة البول قبل خروجه.',1,tp(.5,.97,.08,.06),'pelvis');
+add('الحوض','Pelvis','الحوض عظمتا ورك ترتبطان بالعجز.',1,()=>{const m=mid(pv(23),pv(24));return m&&[m,(TF?TF.Wf:sw())*.25]},'pelvis',11);
+[[true,'Right',12,14,16],[false,'Left',11,13,15]].forEach(([r,e,a,b,c],ix)=>{
+ const mS=sd(1,r),fS=sd(0,r),side=r?'R':'L';
+ add('الكتف '+mS,e+' shoulder','الكتف من أكثر مفاصل الجسم حركة.',0,()=>{const p=pv(a);return p&&[p,(TF?TF.Wf:sw())*.15]},'shoulders');
+ add('العضد '+mS,e+' humerus','العضد أطول عظام الذراع.',0,()=>{const m=mid(pv(a),pv(b));return m&&[m,(TF?TF.Wf:sw())*.13]},'arms',12+ix);
+ add('المرفق '+mS,e+' elbow','المرفق يربط العضد بعظمتي الساعد: الكعبرة والزند.',0,()=>{const p=pv(b);return p&&[p,(TF?TF.Wf:sw())*.1]},'arms');
+ add('الساعد '+mS,e+' forearm','في الساعد عظمتان: الكعبرة والزند.',0,()=>{const m=mid(pv(b),pv(c));return m&&[m,(TF?TF.Wf:sw())*.1]},'forearms',14+ix);
+ add('المعصم '+mS,e+' wrist','في المعصم 8 عظام صغيرة تُسمى الرسغ.',0,()=>{const p=pv(c);return p&&[p,(TF?TF.Wf:sw())*.07]},'forearms');
+ const h=()=>HA[side];const hs=H=>D(H[0],H[9]);
+ add('كف اليد '+fS,e+' palm','في اليد الواحدة 27 عظمة.',0,()=>{const H=h();return H&&[H[9],hs(H)*.5]},'hands',16+ix);
+ [['الإبهام',1,4,'للإبهام سلاميتان فقط.'],['السبابة',0,8,'في السبابة ثلاث سلاميات.'],['الوسطى',0,12,'الإصبع الوسطى أطول الأصابع.'],['البنصر',1,16,'في البنصر ثلاث سلاميات.'],['الخنصر',1,20,'الخنصر أصغر الأصابع.']].forEach(([nm,m,i,f])=>
+  add(nm+' '+sd(m,r),e+' finger',f,0,()=>{const H=h();return H&&[H[i],hs(H)*.14]},'hands'));
+});
+[[true,'Right',24,26,28,30,32],[false,'Left',23,25,27,29,31]].forEach(([r,e,a,b,c,hl_,t],ix)=>{
+ const mS=sd(1,r),fS=sd(0,r);
+ add('مفصل الورك '+mS,e+' hip joint','مفصل الورك من نوع الكرة والحُقّ.',0,()=>{const p=pv(a);return p&&[p,(TF?TF.Wf:sw())*.13]},'thighs');
+ add('الفخذ '+mS,e+' femur','عظم الفخذ أطول وأقوى عظام الجسم.',0,()=>{const m=mid(pv(a),pv(b));return m&&[m,(TF?TF.Wf:sw())*.2]},'thighs',18+ix);
+ add('الركبة '+fS,e+' knee','الرضفة عظمة صغيرة تحمي مفصل الركبة من الأمام.',0,()=>{const p=pv(b);return p&&[p,(TF?TF.Wf:sw())*.12]},'thighs',20+ix);
+ add('الساق '+fS,e+' leg','في الساق عظمتان: الظنبوب والشظية.',0,()=>{const m=mid(pv(b),pv(c));return m&&[m,(TF?TF.Wf:sw())*.14]},'shins',22+ix);
+ add('الكاحل '+mS,e+' ankle','عظم الكاحل ينقل وزن الجسم من الساق إلى القدم.',0,()=>{const p=pv(c);return p&&[p,(TF?TF.Wf:sw())*.09]},'shins');
+ add('العقب '+mS,e+' heel','عظم العقب أكبر عظام القدم.',0,()=>{const p=pv(hl_);return p&&[p,(TF?TF.Wf:sw())*.08]},'feet');
+ add('مقدمة القدم '+fS,e+' forefoot','في القدم الواحدة 26 عظمة.',1,()=>{const p=pv(t);return p&&[p,(TF?TF.Wf:sw())*.09]},'feet');
+});
+// ---------- model loading ----------
+async function mk(k,d){const o={baseOptions:{modelAssetPath:U[k],delegate:d},runningMode:'VIDEO'};
+ if(k=='face')return M.FaceLandmarker.createFromOptions(vis,{...o,numFaces:1,outputFaceBlendshapes:true,outputFacialTransformationMatrixes:true,minFaceDetectionConfidence:.5,minFacePresenceConfidence:.5,minTrackingConfidence:.5});
+ if(k=='hands')return M.HandLandmarker.createFromOptions(vis,{...o,numHands:2,minHandDetectionConfidence:.6,minHandPresenceConfidence:.6,minTrackingConfidence:.5});
+ return M.PoseLandmarker.createFromOptions(vis,{...o,numPoses:1,minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5,minTrackingConfidence:.5,outputSegmentationMasks:S.seg})}
+const NM={face:'الوجه',hands:'اليدين',pose:'الجسم'};
+async function loadAll(d){const bad=[];for(const k of ['pose','face','hands']){const t='جارٍ تحميل نموذج '+NM[k]+'…';msg(t);stat(t);
+ try{mods[k]=await mk(k,d)}catch(e){try{mods[k]=await mk(k,'CPU');del='CPU'}catch(e2){mods[k]=null;bad.push(NM[k])}}}
+ failed=bad;return bad}
+async function toCPU(){if(del=='CPU'||swit)return;swit=true;del='CPU';for(const k in mods){try{mods[k]&&mods[k].close()}catch(e){}}mods={};try{await loadAll('CPU')}finally{swit=false;errN=0}}
+// ---------- camera ----------
+async function wake(){try{if(navigator.wakeLock&&!document.hidden)wl=await navigator.wakeLock.request('screen')}catch(e){}}
+async function cam(){
+ if(stream)stream.getTracks().forEach(t=>t.stop());
+ try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:S.front?'user':'environment',width:{ideal:MOB?960:1280},height:{ideal:MOB?540:720}},audio:false});}
+ catch(e){const n=e.name;say(n=='NotAllowedError'?'تم رفض إذن الكاميرا. افتح إعدادات الموقع في Chrome (القفل بجانب العنوان) وفعّل الكاميرا ثم أعد التحميل.':n=='NotFoundError'?'لا توجد كاميرا في هذا الجهاز.':n=='NotReadableError'?'الكاميرا مستخدمة من تطبيق آخر. أغلقه ثم حاول.':'خطأ في الكاميرا: '+n);throw e}
+ vid.srcObject=stream;vid.style.transform=S.front?'scaleX(-1)':'';await vid.play();wake()}
+function resetTrack(){pl=null;fl=null;HL=[];pd=null;fd=null;pwy=null;plMiss=flMiss=hlMiss=0;BACK=false;for(const k in hold)delete hold[k]}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){wake();if(vid.srcObject&&vid.paused)vid.play().catch(()=>{})}});
+$('#start').onclick=async()=>{
+ // انتظر سيطرة Service Worker قبل تحميل MediaPipe كي تمر طلبات CDN عبر التخزين المحلي.
+ if('serviceWorker' in navigator && window.isSecureContext){try{await navigator.serviceWorker.ready;if(!navigator.serviceWorker.controller)await Promise.race([new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true})),new Promise(resolve=>setTimeout(resolve,2500))])}catch(e){}}
+ if(!window.isSecureContext||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){msg('يلزم تشغيل التطبيق من HTTPS أو كتطبيق مثبت عبر Chrome؛ لا تعمل الكاميرا من ملف HTML محلي مباشر.');return}
+ if(typeof WebAssembly!='object'){msg('المتصفح لا يدعم WebAssembly. استخدم Chrome حديثًا.');return}
+ $('#start').disabled=true;msg('جارٍ تشغيل الكاميرا…');
+ try{await cam()}catch(e){$('#start').disabled=false;return}
+ msg(navigator.onLine?'جارٍ تحميل النماذج وحفظها للاستخدام دون إنترنت (قد يستغرق ذلك أول مرة)…':'جارٍ تشغيل النماذج المحفوظة محلياً…');
+ try{M=await import(V+'/vision_bundle.mjs');vis=await M.FilesetResolver.forVisionTasks(V+'/wasm')}catch(e){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;msg('تعذّر تحميل محرك التتبع. شغّل التطبيق مرة مع الإنترنت حتى تُحفظ المكتبة وملفات WASM.');$('#start').disabled=false;return}
+ const bad=await loadAll('GPU');
+ if(bad.length>=3){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;msg('تعذّر تحميل نماذج التتبع. اتصل بالإنترنت مرة واحدة أو تحقق من مساحة التخزين ثم أعد المحاولة.');$('#start').disabled=false;return}
+ if('requestVideoFrameCallback' in vid&&!rvfc){rvfc=true;const cb=()=>{newFrame=true;vid.requestVideoFrameCallback(cb)};vid.requestVideoFrameCallback(cb)}
+ $('#go').style.display='none';offlineInfo();requestAnimationFrame(loop)};
+$('#cam').onclick=async()=>{const prev=S.front;S.front=!prev;resetTrack();try{await cam()}catch(e){S.front=prev;try{await cam()}catch(e2){}}};
+// ---------- detection ----------
+const SCH=['pose','face','pose','hands'];let n=0,lt=-1,fn=0,newFrame=false;
+function sm(a,c,k){if(!a||a.length!=c.length)return c.map(p=>({x:p.x,y:p.y,v:p.visibility??1}));for(let i=0;i<c.length;i++){const q=a[i];q.x+=(c[i].x-q.x)*k;q.y+=(c[i].y-q.y)*k;q.v=c[i].visibility??1}return a}
+function useMask(r){
+ if(!S.seg)return;const m=r.segmentationMasks&&r.segmentationMasks[0];if(!m)return;
+ if((segN++)%(lvl>0?4:2))return;
+ try{const w=m.width,h=m.height,k=4,sw_=Math.max(1,(w/k)|0),sh_=Math.max(1,(h/k)|0);
+  if(mc.width!==sw_||mc.height!==sh_){mc.width=sw_;mc.height=sh_;maskImg=null}
+  if(!maskImg)maskImg=mcx.createImageData(sw_,sh_);
+  const a=m.getAsFloat32Array(),d=maskImg.data;
+  for(let y=0;y<sh_;y++){const row=(y*k)*w;for(let x=0;x<sw_;x++){let v=(a[row+x*k]-.35)/.4;v=v<0?0:v>1?1:v;d[(y*sw_+x)*4+3]=v*255}}
+  mcx.putImageData(maskImg,0,0);maskOK=true}
+ catch(e){S.seg=false;maskOK=false;setSegBtn();toast('تعذّر قص الأعضاء داخل الجسم على هذا الجهاز.')}}
+function use(k,r){
+ if(k=='pose'){if(r.landmarks&&r.landmarks[0]){pl=sm(pl,r.landmarks[0],.6);plMiss=0;
+   const w=r.worldLandmarks&&r.worldLandmarks[0];
+   if(w&&w[11]&&w[12]&&w[23]&&w[24]){pwy={dx:w[11].x-w[12].x,dz:w[11].z-w[12].z,hdx:w[23].x-w[24].x,hdz:w[23].z-w[24].z,hv:Math.min(pl[23].v,pl[24].v)};updYaw()}else pwy=null;
+   useMask(r)}else if(++plMiss>6){pl=null;pwy=null}}
+ else if(k=='face'){if(r.faceLandmarks&&r.faceLandmarks[0]){fl=sm(fl,r.faceLandmarks[0],.7);flMiss=0}else if(++flMiss>4)fl=null}
+ else{if(r.landmarks&&r.landmarks.length){const old=HL;HL=r.landmarks.map(c=>{let best=null,bd=.2;for(const o of old){const d=Math.hypot(o[0].x-c[0].x,o[0].y-c[0].y);if(d<bd){bd=d;best=o}}return sm(best,c,.7)});hlMiss=0}else if(++hlMiss>4)HL=[]}}
+function step(){
+ if(vid.readyState<2||!vid.videoWidth)return;
+ const fresh=rvfc?newFrame:vid.currentTime!==lt;
+ if(!fresh)return;newFrame=false;lt=vid.currentTime;if(lvl>=3&&(fn&1))return;
+ const k=SCH[n++%4],m=mods[k];if(!m)return;
+ if(k=='face'&&pl&&!pv(0)&&!fl&&n%8)return; // لا نشغّل نموذج الوجه إذا لا يوجد رأس في الكادر
+ try{const res=m.detectForVideo(vid,performance.now());use(k,res);errN=0;if(k=='pose'&&res&&res.close){try{res.close()}catch(e){}}}catch(e){if(++errN>=3)toCPU()}}
+const ease=(Dd,Tt,k)=>{if(!Tt)return null;if(!Dd||Dd.length!==Tt.length)return Tt.map(p=>({x:p.x,y:p.y,v:p.v}));for(let i=0;i<Tt.length;i++){const d=Dd[i],t=Tt[i];d.x+=(t.x-d.x)*k;d.y+=(t.y-d.y)*k;d.v=t.v}return Dd};
+// ---------- المعايرة وقفل أطوال العظام ----------
+const lim=k=>CAL&&CAL[k]&&TF?CAL[k]*TF.L*1.05:0;
+function clampTo(a,b,max){if(!max)return b;const d=D(a,b);if(d<=max)return b;const k=max/d;return {x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k}}
+function limb(a,b,c,k1,k2){const s=pv(a),e0=pv(b),w0=pv(c);if(!s||!e0)return [s,e0,w0];
+ const e=clampTo(s,e0,lim(k1));let w=w0;if(w0){w={x:w0.x+(e.x-e0.x),y:w0.y+(e.y-e0.y)};w=clampTo(e,w,lim(k2))}return [s,e,w]}
+const med=a=>{if(!a.length)return 0;const b=a.slice().sort((x,y)=>x-y);return b[b.length>>1]};
+$('#calb').onclick=()=>{if(!pl||!TF){toast('قف أمام الكاميرا ليظهر جسمك (الكتفان والوركان على الأقل) ثم أعد المحاولة.');return}
+ cal={st:1,t0:performance.now()+3000,t1:0,s:{rW:[],rA:[],rF:[],rT:[],rS:[]}}};
+function calStep(now,W,H){
+ if(!cal.st)return;
+ if(cal.st===1){banner('قف مواجهًا الكاميرا وافتح ذراعيك قليلًا',H*.34,W,H);banner(String(Math.max(1,Math.ceil((cal.t0-now)/1000))),H*.46,W,H,64);
+  if(now>=cal.t0){cal.st=2;cal.t1=now+1300}return}
+ if(!TF||Math.abs(TF.c)<.88||BACK){banner('قف مواجهًا الكاميرا',H*.4,W,H)}
+ else{const L=TF.L,s=cal.s;s.rW.push(D(TF.A,TF.B)/(Math.abs(TF.c)*L));
+  const q=(a,b,key)=>{const p=pv(a),r=pv(b);if(p&&r)s[key].push(D(p,r)/L)};q(12,14,'rA');q(11,13,'rA');q(14,16,'rF');q(13,15,'rF');q(24,26,'rT');q(23,25,'rT');q(26,28,'rS');q(25,27,'rS');
+  banner('جارٍ القياس… ثبّت وضعك',H*.4,W,H)}
+ if(now>=cal.t1){cal.st=0;const s=cal.s;
+  if(s.rW.length<8){toast('لم أتمكن من القياس. قف مواجهًا الكاميرا وجسمك ظاهر ثم أعد المحاولة.');return}
+  CAL={rW:med(s.rW)};for(const k of ['rA','rF','rT','rS'])if(s[k].length>=8)CAL[{rA:'rA',rF:'rF',rT:'rT',rS:'rS'}[k]]=med(s[k]);
+  try{localStorage.setItem('xrcal',JSON.stringify(CAL))}catch(e){}
+  toast('تمت معايرة جسمك'+(CAL.rA&&CAL.rT?' (الجذع والذراعان والساقان).':' (الجذع فقط؛ لم تظهر الأطراف كاملة).'))}}
+function banner(t,y,W,H,fs){const f=(fs||20)*dpr;cx.save();cx.font='bold '+f+'px Tajawal';cx.textAlign='center';cx.textBaseline='middle';const w=cx.measureText(t).width+24*dpr;
+ cx.fillStyle='rgba(3,12,26,.75)';cx.fillRect(W/2-w/2,y-f*.8,w,f*1.6);cx.fillStyle='#fff';cx.fillText(t,W/2,y);cx.restore()}
+// ---------- drawing helpers ----------
+let X=true,BC='#dff3ff',lw=4;
+const pen=(c,w)=>{cx.strokeStyle=c;cx.lineWidth=w;cx.lineCap='round';cx.lineJoin='round'};
+const ln=(a,b,w,c)=>{if(!a||!b)return;pen(c,w);cx.beginPath();cx.moveTo(a.x,a.y);cx.lineTo(b.x,b.y);cx.stroke()};
+const el=(p,rx,ry,an,fill,stroke,w)=>{if(!p)return;cx.beginPath();cx.ellipse(p.x,p.y,Math.max(rx,1),Math.max(ry,1),an||0,0,6.283);if(fill){cx.fillStyle=fill;cx.fill()}if(stroke){pen(stroke,w||lw*.5);cx.stroke()}};
+const oc=c=>X?'rgba(95,208,255,.3)':c;
+const al=(k,gr)=>{cx.globalAlpha=Z[k].a*(S.iso=='all'||S.iso==gr?1:.12);return Z[k].a>.02};
+function anat(){
+ const bn=S.sys=='all'||S.sys=='bones',og=S.sys=='all'||S.sys=='organs',mu=S.sys=='all'||S.sys=='muscles';
+ const Wb=TF?TF.Wf:(sw()||(HS?HS*1.6:0)||150*dpr);lw=Math.max(Wb*.045,2);
+ const RED=X?'rgba(255,120,120,.22)':'rgba(190,40,40,.55)';
+ // الرأس
+ if(HC&&al('head','head')){const an=ff?Math.atan2(ff[263].y-ff[33].y,ff[263].x-ff[33].x):0;
+  if(bn){el(HC,HS*.38,HS*.5,an,null,BC,lw*.8);
+   if(ff){[ff[159],ff[386]].forEach(p=>el(p,HS*.075,HS*.07,an,'#001',BC,lw*.5));ln(ff[168],ff[1],lw*.9,BC);
+    pen(BC,lw*.8);cx.beginPath();cx.moveTo(ff[172].x,ff[172].y);cx.quadraticCurveTo(ff[152].x,ff[152].y+HS*.04,ff[397].x,ff[397].y);cx.stroke();
+    ln(ff[61],ff[291],lw*1.4,'#fff')}}
+  if(og&&ff)el(lp(HC,ff[10],.3),HS*.3,HS*.22,an,oc('rgba(235,150,170,.45)'),null);}
+ // الرقبة
+ const nk=mid(pv(11),pv(12));
+ if(nk&&HC&&al('neck','neck')&&bn){const a=ff?ff[152]:lp(HC,nk,.5);for(let i=0;i<7;i++)el(lp(a,nk,.25+i*.1),lw*.9,lw*.5,0,BC,null)}
+ // الجذع ثلاثي الأبعاد
+ if(TF){const ca=Math.abs(TF.c),sa_=Math.abs(TF.s),sa=Math.atan2(TF.e.y,TF.e.x);
+  const rx=(rw,rd)=>rw*Wb*ca+rd*Wb*sa_;
+  // الصدر: الأضلاع والرئتان والقلب والحجاب
+  if(al('torso','chest')){const base=cx.globalAlpha;
+   if(bn){pen(BC,lw*.5);
+    for(let i=0;i<12;i++){const b=.07+i*.034,tq=.55+.45*Math.sin(Math.PI*(i+1.5)/13.5),Rw=.4*tq,Rd=.27*tq,end=(i<7?80:i<10?60:35)*.01745;
+     for(const s2 of [-1,1])for(let pass=0;pass<2;pass++){cx.globalAlpha=base*(pass?1:.45);cx.beginPath();let on=false;
+      for(let k=0;k<=10;k++){const ph=-1.4835+(end+1.4835)*k/10;if(pass?ph<0:ph>.15)continue;
+       const p=T3(.5+s2*Rw*Math.cos(ph),b+.035*k/10,Rd*Math.sin(ph));if(!on){cx.moveTo(p.x,p.y);on=true}else cx.lineTo(p.x,p.y)}
+      cx.stroke()}}
+    cx.globalAlpha=base;ln(T3(.5,.06,.27),T3(.5,.27,.27),lw*.9,BC)}
+   if(og){const lung=(a,r)=>el(T3(a,.2,-.02),rx(r,.12),Wb*.26,sa,oc('rgba(230,140,155,.5)'),X?BC:null,lw*.3);lung(.3,.15);lung(.72,.13);
+    el(T3(.62,.26,.08),rx(.08,.07),Wb*.1,sa,oc('#c0182f'),null);
+    const d0=T3(.12,.37),d1=T3(.5,.31),d2=T3(.88,.37);pen(oc('rgba(230,200,150,.85)'),lw*.8);cx.beginPath();cx.moveTo(d0.x,d0.y);cx.quadraticCurveTo(d1.x,d1.y-Wb*.03,d2.x,d2.y);cx.stroke()}}
+  if(al('torso','shoulders')&&bn){const m=T3(.5,.04,.2);ln(TF.A,m,lw*.8,BC);ln(TF.B,m,lw*.8,BC);el(TF.A,lw*1.1,lw*1.1,0,BC);el(TF.B,lw*1.1,lw*1.1,0,BC)}
+  // البطن
+  if(al('torso','abdomen')&&og){el(T3(.3,.46,.03),rx(.18,.1),Wb*.09,sa,oc('#8a3b1f'),null);el(T3(.68,.46,.05),rx(.1,.08),Wb*.09,sa,oc('#d98a6a'),null);
+   el(T3(.82,.42,-.12),rx(.05,.04),Wb*.07,sa,oc('#7a2f4a'),null);
+   pen(oc('#e6a98f'),lw*1.6);cx.beginPath();for(let i=0;i<=8;i++){const p=T3(.3+i*.05,.62+(i&1)*.1+(i>>1)*.02,.05);i?cx.lineTo(p.x,p.y):cx.moveTo(p.x,p.y)}cx.stroke()}
+  if(al('torso','back')){
+   if(bn){for(let i=0;i<17;i++)el(T3(.5,.04+i*.056,-.22),lw*.8,lw*.55,sa,BC,null);
+    if(BACK){el(T3(.27,.14,-.27),rx(.09,.03),Wb*.11,sa+.35,null,BC,lw*.5);el(T3(.73,.14,-.27),rx(.09,.03),Wb*.11,sa-.35,null,BC,lw*.5)}}
+   if(og){el(T3(.36,.5,-.17),rx(.05,.04),Wb*.07,sa,oc('#9b3d3d'),null);el(T3(.64,.5,-.17),rx(.05,.04),Wb*.07,sa,oc('#9b3d3d'),null)}
+   if(mu&&BACK){const pts=[[.5,-.03],[.08,.05],[.3,.3],[.5,.42],[.7,.3],[.92,.05]];cx.beginPath();pts.forEach((q,i)=>{const p=T3(q[0],q[1],-.25);i?cx.lineTo(p.x,p.y):cx.moveTo(p.x,p.y)});cx.closePath();cx.fillStyle=RED;cx.fill();
+    el(T3(.2,.48,-.25),rx(.12,.05),Wb*.14,sa,RED,null);el(T3(.8,.48,-.25),rx(.12,.05),Wb*.14,sa,RED,null)}}
+  if(al('torso','chest')&&mu&&!BACK){el(T3(.34,.14,.25),rx(.2,.08),Wb*.09,sa,RED,null);el(T3(.66,.14,.25),rx(.2,.08),Wb*.09,sa,RED,null)}
+  if(al('torso','abdomen')&&mu&&!BACK)for(let r=0;r<4;r++)[.45,.55].forEach(a=>el(T3(a,.38+r*.1,.27),rx(.07,.04),Wb*.04,sa,RED,null));
+  // الحوض
+  if(al('pelvis','pelvis')){
+   if(bn){el(T3(.1,.93),rx(.2,.08),Wb*.14,sa,null,BC,lw*.6);el(T3(.9,.93),rx(.2,.08),Wb*.14,sa,null,BC,lw*.6);el(T3(.5,.97,-.17),rx(.06,.05),Wb*.09,sa,null,BC,lw*.6)}
+   if(og)el(T3(.5,.96,.06),rx(.06,.05),Wb*.06,sa,oc('#d8c25a'),null);
+   if(mu&&BACK){el(T3(.3,1.07,-.2),rx(.14,.06),Wb*.12,sa,RED,null);el(T3(.7,1.07,-.2),rx(.14,.06),Wb*.12,sa,RED,null)}}
+ }
+ // الذراعان واليدان (مع قفل أطوال العظام بعد المعايرة)
+ [[12,14,16,'aR','fR','R','rA','rF'],[11,13,15,'aL','fL','L','rA','rF']].forEach(([a,b,c,ka,kf,sd2,k1,k2])=>{
+  const [s,e,w]=limb(a,b,c,k1,k2);
+  if(s&&e&&al(ka,'arms')){if(bn){ln(s,e,lw*1.4,BC);el(e,lw*1.3,lw*1.3,0,BC)}if(mu){ln(lp(s,e,.15),lp(s,e,.85),lw*3.4,RED);el(s,lw*2.2,lw*2.2,0,RED)}}
+  if(e&&w&&al(kf,'forearms')){const dx=w.x-e.x,dy=w.y-e.y,l=Math.hypot(dx,dy)||1,ox=-dy/l*lw*.9,oy=dx/l*lw*.9;
+   if(bn){ln({x:e.x+ox,y:e.y+oy},{x:w.x+ox,y:w.y+oy},lw*.8,BC);ln({x:e.x-ox,y:e.y-oy},{x:w.x-ox,y:w.y-oy},lw*.8,BC)}if(mu)ln(lp(e,w,.1),lp(e,w,.8),lw*2.6,RED)}
+  if(al('h'+sd2,'hands')&&bn){const H=HA[sd2];if(H){const hs=D(H[0],H[9]),w2=Math.max(hs*.05,2);el(H[0],w2*2,w2*1.6,0,BC);
+    [1,5,9,13,17].forEach(i=>ln(H[0],H[i],w2*1.1,BC));
+    [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]].forEach(f=>{for(let i=0;i<3;i++)ln(H[f[i]],H[f[i+1]],w2*.9,BC);f.forEach(i=>el(H[i],w2*.8,w2*.8,0,BC))})}
+   else if(w){[17,19,21].forEach(i=>{const q=pv(i);q&&ln(w,q,lw*.6,BC)})}}
+ });
+ // الساقان والقدمان
+ [[24,26,28,'thR','shR','ftR',30,32],[23,25,27,'thL','shL','ftL',29,31]].forEach(([a,b,c,kt,ks,kf,h,t])=>{
+  const [hp,k,an]=limb(a,b,c,'rT','rS');
+  if(hp&&k&&al(kt,'thighs')){if(bn){ln(hp,k,lw*1.8,BC);el(hp,lw*1.5,lw*1.5,0,BC)}if(mu)ln(lp(hp,k,.12),lp(hp,k,.85),lw*4.6,RED)}
+  if(k&&an&&al(ks,'shins')){const dx=an.x-k.x,dy=an.y-k.y,l=Math.hypot(dx,dy)||1,ox=-dy/l*lw*.8,oy=dx/l*lw*.8;
+   if(bn){el(k,lw*1.3,lw*1.6,0,null,BC,lw*.6);ln(k,an,lw*1.4,BC);ln({x:k.x+ox,y:k.y+oy},{x:an.x+ox,y:an.y+oy},lw*.6,BC)}if(mu)ln(lp(k,an,.15),lp(k,an,.7),lw*3.6,RED)}
+  const hh=pv(h),tt=pv(t);
+  if(an&&tt&&hh&&al(kf,'feet')&&bn){ln(an,hh,lw,BC);ln(hh,tt,lw*1.1,BC);const d={x:tt.x-hh.x,y:tt.y-hh.y};for(let i=-2;i<=2;i++)ln(tt,{x:tt.x+d.x*.18-d.y*.05*i,y:tt.y+d.y*.18+d.x*.05*i},lw*.5,BC)}
+ });
+ cx.globalAlpha=1;cx.shadowBlur=0}
+// ---------- خطوط الأسماء الجانبية ----------
+function drawLabels(W,H){
+ if(!S.labels||S.mode==='lens')return;
+ const all=S.iso==='all';let L=[];
+ for(const v of VP){const p=v[0];if(all?!p.pri:p.grp!==S.iso)continue;if(S.mode==='scan'&&v[1].y>g.sy)continue;L.push(v)}
+ if(all)L.sort((a,b)=>a[0].pri-b[0].pri);L=L.slice(0,all?18:16);if(!L.length)return;
+ const top=S.stage==='9:16'?H*.13:H*.1,bot=S.stage==='9:16'?H*.87:H*.93,gap=26*dpr,fs=14*dpr;
+ cx.save();cx.font='bold '+fs+'px Tajawal';cx.textBaseline='middle';cx.textAlign='left';
+ for(const side of [0,1]){
+  const A=L.filter(v=>(v[1].x<=W/2)===!side).sort((a,b)=>a[1].y-b[1].y);if(!A.length)continue;
+  const ys=A.map(v=>Math.min(Math.max(v[1].y,top),bot));
+  for(let i=1;i<ys.length;i++)if(ys[i]<ys[i-1]+gap)ys[i]=ys[i-1]+gap;
+  for(let i=ys.length-1;i>=0;i--){const mx=i==ys.length-1?bot:ys[i+1]-gap;if(ys[i]>mx)ys[i]=mx}
+  for(let i=1;i<ys.length;i++)if(ys[i]<ys[i-1]+gap)ys[i]=ys[i-1]+gap;
+  A.forEach((v,i)=>{const p=v[0],tw=cx.measureText(p.ar).width,sf=p.ap?cx.measureText(' ~').width:0,w=tw+sf+12*dpr,x0=side?W-6*dpr-w:6*dpr,xe=side?x0:x0+w,y=ys[i];
+   cx.strokeStyle='rgba(159,230,255,.85)';cx.lineWidth=1.2*dpr;cx.beginPath();cx.moveTo(v[1].x,v[1].y);cx.lineTo(xe,y);cx.stroke();
+   cx.fillStyle='#9fe6ff';cx.beginPath();cx.arc(v[1].x,v[1].y,2.5*dpr,0,6.283);cx.fill();
+   cx.fillStyle='rgba(3,12,26,.78)';cx.fillRect(x0,y-fs*.8,w,fs*1.6);cx.fillStyle='#fff';cx.fillText(p.ar,x0+6*dpr,y);
+   if(p.ap){cx.fillStyle='#ffcf6b';cx.fillText(' ~',x0+6*dpr+tw,y)}})}
+ cx.restore()}
+// ---------- hit-test, card, search, tour ----------
+function hit(x,y,noFinger){let best=null;for(const [p,pt,r] of VP){if(noFinger&&/^(الإبهام|السبابة|الوسطى|البنصر|الخنصر)/.test(p.ar))continue;if(Math.hypot(pt.x-x,pt.y-y)<=Math.max(r*1.15,10*dpr)&&(!best||r<best[2]))best=[p,pt,r]}return best&&best[0]}
+function show(p,ms){hl=p;hlT=performance.now()+(ms||4500);const c=$('#card');c.style.display='block';c.innerHTML='<b>'+p.ar+'</b><small>'+p.en+'</small><p>'+p.f+'</p>'+(p.ap?'<i>تقريبي: الموضع مقدّر من أقرب نقاط الجسم</i>':'');cardT=hlT}
+const pxy=e=>{const r=st.getBoundingClientRect();return {x:(e.clientX-r.left)*dpr,y:(e.clientY-r.top)*dpr}};
+st.addEventListener('pointerdown',e=>{touch=pxy(e);const p=hit(touch.x,touch.y);if(p)show(p)});
+st.addEventListener('pointermove',e=>{if(touch)touch=pxy(e)});
+['pointerup','pointercancel'].forEach(ev=>st.addEventListener(ev,()=>touch=null));
+const nz=s=>s.replace(/[ً-ْـ]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/(^|\s)ال/g,'$1').trim();
+function doSearch(t){t=nz(t||'');if(!t)return;const m=parts.filter(x=>nz(x.ar).includes(t));
+ if(!m.length){toast('لا يوجد جزء بهذا الاسم في القائمة.');return}
+ const v=m.find(p=>VP.some(x=>x[0]==p));
+ if(v)show(v,6000);else toast(m[0].ar+': غير ظاهر الآن. ابتعد قليلًا أو غيّر وضعك حتى يدخل هذا الجزء في الكاميرا.')}
+$('#q').addEventListener('change',e=>doSearch(e.target.value));
+$('#q').addEventListener('keydown',e=>{if(e.key=='Enter'){e.preventDefault();doSearch(e.target.value);e.target.blur()}});
+$('#tour').onclick=e=>{tourOn=!tourOn;e.currentTarget.className=tourOn?'on':'';tourT=0};
+$('#dbg').onclick=e=>{S.dbg=!S.dbg;e.currentTarget.className=S.dbg?'on':''};
+$('#tg').onclick=()=>$('#sheet').classList.toggle('min');
+$('#sys').onchange=e=>S.sys=e.target.value;$('#look').onchange=e=>S.look=e.target.value;$('#mode').onchange=e=>S.mode=e.target.value;
+$('#keep').oninput=e=>S.keep=e.target.value/100;$('#lensr').oninput=e=>S.lens=e.target.value/100;
+// أزرار المزايا الجديدة
+const VL={auto:'تلقائي',f:'أمامي',b:'خلفي'},SL={auto:'ملء الشاشة','16:9':'16:9 (لابتوب)','9:16':'9:16 (ريلز)'};
+function setSegBtn(){setBtn('segb','cut','قص داخل الجسم: '+(S.seg?'تشغيل':'إيقاف'),S.seg)}
+$('#labb').onclick=e=>{S.labels=!S.labels;setBtn('labb','labels','الأسماء: '+(S.labels?'تشغيل':'إيقاف'),S.labels)};
+$('#viewb').onclick=e=>{S.view=S.view==='auto'?'f':S.view==='f'?'b':'auto';setBtn('viewb','view','العرض: '+VL[S.view],S.view!=='auto')};
+$('#segb').onclick=async()=>{S.seg=!S.seg;
+ try{if(mods.pose&&mods.pose.setOptions)await mods.pose.setOptions({outputSegmentationMasks:S.seg})}catch(e){S.seg=false;toast('هذا الجهاز لا يدعم قص الأعضاء داخل الجسم.')}
+ if(!S.seg)maskOK=false;else toast('قص الأعضاء داخل الجسم: يعمل أفضل على الأجهزة السريعة وقد يتأخر القناع قليلًا عن حركتك.');setSegBtn()};
+$('#stageb').onclick=e=>{S.stage=S.stage==='auto'?'16:9':S.stage==='16:9'?'9:16':'auto';layout();setBtn('stageb','fullscreen','المسرح: '+SL[S.stage],S.stage!=='auto')};
+$('#flipb').onclick=e=>{S.flip=!S.flip;setBtn('flipb','flip','عكس الدوران: '+(S.flip?'تشغيل':'إيقاف'),S.flip)};
+$('#shot').onclick=()=>{const t=document.createElement('canvas');t.width=cv.width;t.height=cv.height;const c=t.getContext('2d');c.save();if(S.front){c.translate(t.width,0);c.scale(-1,1)}
+ c.drawImage(vid,S.front?t.width-g.ox-g.vw*g.s:g.ox,g.oy,g.vw*g.s,g.vh*g.s);c.restore();c.drawImage(cv,0,0);t.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='xray.png';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)})};
+// ---------- التسجيل ----------
+function pickMime(){if(typeof MediaRecorder==='undefined')return null;for(const m of ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4;codecs=avc1','video/mp4'])if(MediaRecorder.isTypeSupported(m))return m;return ''}
+$('#recb').onclick=()=>{
+ if(recOn){stopRec();return}
+ if(recPend){recPend=false;setBtn('recb','record','● تسجيل',false);return}
+ const mime=pickMime();if(mime===null||!rc.captureStream){toast('التسجيل غير مدعوم في هذا المتصفح. استخدم زر اللقطة أو سجّل الشاشة من الهاتف.');return}
+ recMime=mime;recPend=true;recCd=performance.now()+3000;setBtn('recb','close','إلغاء العدّ',true)};
+function beginRec(now){
+ recPend=false;
+ let rw,rh;if(S.stage==='9:16'){rw=1080;rh=1920}else if(S.stage==='16:9'){rw=1280;rh=720}else{const k=Math.min(1,1280/Math.max(cv.width,cv.height));rw=Math.max(2,Math.round(cv.width*k/2)*2);rh=Math.max(2,Math.round(cv.height*k/2)*2)}
+ rc.width=rw;rc.height=rh;
+ try{const s=rc.captureStream(30);mr=new MediaRecorder(s,recMime?{mimeType:recMime,videoBitsPerSecond:4000000}:{});chunks=[];
+  mr.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+  mr.onstop=()=>{const type=(recMime||'video/webm').split(';')[0],ext=type.includes('mp4')?'mp4':'webm',b=new Blob(chunks,{type}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='xray.'+ext;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),8000);chunks=[]};
+  mr.start(1000);recOn=true;recStart=now;setBtn('recb','stop','■ إيقاف التسجيل',true);$('#rt').style.display='block'}
+ catch(e){recOn=false;toast('تعذّر بدء التسجيل على هذا الجهاز.');setBtn('recb','record','● تسجيل',false)}}
+function stopRec(){recOn=false;recPend=false;try{mr&&mr.state!=='inactive'&&mr.stop()}catch(e){}setBtn('recb','record','● تسجيل',false);$('#rt').style.display='none'}
+function recFrame(now){
+ const w=rc.width,h=rc.height,vw=vid.videoWidth||1,vh=vid.videoHeight||1,s=Math.max(w/vw,h/vh),dw=vw*s,dh=vh*s,ox=(w-dw)/2,oy=(h-dh)/2;
+ rcx.fillStyle='#000';rcx.fillRect(0,0,w,h);rcx.save();if(S.front){rcx.translate(w,0);rcx.scale(-1,1)}
+ rcx.drawImage(vid,S.front?w-ox-dw:ox,oy,dw,dh);rcx.restore();rcx.drawImage(cv,0,0,w,h);
+ rcx.font='bold '+Math.round(h*.016)+'px Tajawal';rcx.textAlign='center';rcx.fillStyle='rgba(255,255,255,.75)';rcx.fillText('نموذج تشريحي تعليمي وليس أشعة حقيقية',w/2,h-Math.round(h*.02));
+ const sec=Math.floor((now-recStart)/1000);$('#rt').textContent='● تسجيل '+String(sec/60|0).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
+ if(sec>=90)stopRec()}
+// ---------- render ----------
+let fc=0,ft=performance.now(),fps=0,good=0,lastRec='',lastCnt='';
+function render(now){
+ NOW=now;
+ dpr=lvl>=2?1:Math.min(devicePixelRatio||1,1.5);const W=Math.round(SW*dpr),H=Math.round(SH*dpr);
+ if(cv.width!=W||cv.height!=H){cv.width=W;cv.height=H}
+ geom();cx=cx0;cx.clearRect(0,0,W,H);
+ pd=ease(pl?pd:null,pl,.4);fd=ease(fl?fd:null,fl,.5);
+ pp=pd?pd.map(P):[];ff=fd?fd.map(P):null;HA={R:null,L:null};
+ HL.forEach(h=>{h._d=ease(h._d,h,.5);const hh=h._d.map(P);let side;
+  if(pl&&pp[15]&&pp[16]){side=D(hh[0],pp[16])<=D(hh[0],pp[15])?'R':'L';if(HA[side])side=side=='R'?'L':'R'}else side=HA.R?'L':'R';
+  if(!HA[side])HA[side]=hh});
+ HC=null;HS=0;
+ if(ff){HC=mid(ff[10],ff[152]);HS=D(ff[10],ff[152])}
+ else if(pl&&pl[7].v>=.4&&pl[8].v>=.4&&pp[7]&&pp[8]){HC=mid(pp[7],pp[8]);HS=D(pp[7],pp[8])*1.5}
+ buildTF();
+ zones();
+ VP=[];for(const p of parts){if((p.view==='b'&&!BACK)||(p.view==='f'&&BACK))continue;let r=null;try{r=p.fn()}catch(e){}if(r&&r[0]&&r[1]>0)VP.push([p,r[0],r[1]])}
+ X=S.look=='x';BC=X?'#dff3ff':'#efe6cc';
+ let tip=null;for(const s of ['R','L']){if(HA[s])tip=tip||HA[s][8]}
+ const lc=touch||tip;
+ cx.save();let draw=true;
+ if(S.mode=='lens'){if(lc){cx.beginPath();cx.arc(lc.x,lc.y,S.lens*Math.min(W,H),0,6.283);cx.clip()}else draw=false}
+ if(S.mode=='scan'){const sy=((now/14)%(H*1.25));cx.beginPath();cx.rect(0,0,W,sy);cx.clip();g.sy=sy}
+ if(draw){if(X){cx.fillStyle='rgba(3,12,26,'+(.9*(1-S.keep)+.05)+')';cx.fillRect(0,0,W,H)}
+  const clip=S.seg&&maskOK;
+  if(clip){if(ac.width!==W||ac.height!==H){ac.width=W;ac.height=H}acx.globalCompositeOperation='source-over';acx.clearRect(0,0,W,H);cx=acx}
+  if(X&&lvl==0){cx.shadowColor='#5fd0ff';cx.shadowBlur=7*dpr}
+  anat();
+  if(clip){cx=cx0;acx.shadowBlur=0;acx.globalCompositeOperation='destination-in';acx.save();if(S.front){acx.translate(W,0);acx.scale(-1,1)}
+   acx.drawImage(mc,S.front?W-g.ox-g.vw*g.s:g.ox,g.oy,g.vw*g.s,g.vh*g.s);acx.restore();acx.globalCompositeOperation='source-over';cx.drawImage(ac,0,0)}}
+ cx.restore();
+ if(S.mode=='lens'&&lc){cx.save();cx.shadowColor='#5fd0ff';cx.shadowBlur=14*dpr;pen('#5fd0ff',3*dpr);cx.beginPath();cx.arc(lc.x,lc.y,S.lens*Math.min(W,H),0,6.283);cx.stroke();cx.restore()}
+ if(S.mode=='scan'){cx.save();cx.shadowColor='#5fd0ff';cx.shadowBlur=12*dpr;ln({x:0,y:g.sy},{x:W,y:g.sy},3*dpr,'#9fe6ff');cx.restore()}
+ drawLabels(W,H);
+ // الإشارة: ثبّت رأس السبابة نحو نصف ثانية فوق جزء
+ if(tip){if(!render.t||Math.hypot(tip.x-render.t.x,tip.y-render.t.y)>W*.03){render.t={x:tip.x,y:tip.y};render.s=now;render.d=0}else if(now-render.s>500&&!render.d){const p=hit(tip.x,tip.y,true);if(p)show(p);render.d=1}}
+ // الجولة التعليمية
+ if(tourOn&&now>tourT){const vp=VP.map(v=>v[0]);if(vp.length){hl=vp[tourI++%vp.length];show(hl,3000);tourT=now+3000}}
+ // حلقة التمييز
+ if(hl&&now<hlT){const v=VP.find(x=>x[0]==hl);if(v){const pr=1+.15*Math.sin(now/120);cx.save();cx.shadowColor='#ffcf6b';cx.shadowBlur=12*dpr;pen('#ffcf6b',3*dpr);cx.beginPath();cx.arc(v[1].x,v[1].y,Math.max(v[2],14*dpr)*pr,0,6.283);cx.stroke();cx.restore();
+   cx.font='bold '+16*dpr+'px Tajawal';cx.fillStyle='#ffcf6b';cx.textAlign='center';cx.fillText(hl.ar,Math.min(Math.max(v[1].x,60*dpr),W-60*dpr),Math.max(v[1].y-Math.max(v[2],14*dpr)*1.3,40*dpr))}}
+ else if(now>cardT)$('#card').style.display='none';
+ if(S.dbg){cx.font=10*dpr+'px sans-serif';pp.forEach((p,i)=>{cx.fillStyle=p.v>=.5?'#4f4':'#f55';cx.fillRect(p.x-2,p.y-2,5,5);cx.fillText(i+':'+p.v.toFixed(1),p.x+4,p.y)});
+  if(ff){cx.fillStyle='#ff0';ff.forEach(p=>cx.fillRect(p.x,p.y,2,2))}['R','L'].forEach(s=>HA[s]&&HA[s].forEach(p=>{cx.fillStyle='#0ff';cx.fillRect(p.x-2,p.y-2,4,4)}));
+  if(TF){cx.font='bold '+14*dpr+'px sans-serif';cx.fillStyle='#ff0';cx.textAlign='left';cx.fillText('yaw '+Math.round(Math.atan2(TF.s,TF.c)*180/Math.PI)+'°  Wf='+Math.round(TF.Wf)+(CAL?'  CAL':''),10*dpr,H*.5)}}
+ calStep(now,W,H);
+ if(recPend){if(now<recCd)banner(String(Math.ceil((recCd-now)/1000)),H*.45,W,H,72);else beginRec(now)}
+ if(recOn)recFrame(now);
+ // الشارات (تُحدَّث عند التغيّر فقط)
+ const names=Object.keys(Z).filter(k=>Z[k].on).map(k=>ZN[k]);if(names.length&&BACK)names.unshift('عرض خلفي');
+ const rec=names.length?names.join(' · '):'ابتعد قليلًا أو ارفع يدك أمام الكاميرا';if(rec!==lastRec){lastRec=rec;$('#rec').textContent=rec}
+ const cnt='الأجزاء الظاهرة: '+VP.length+' من '+parts.filter(p=>!((p.view==='b'&&!BACK)||(p.view==='f'&&BACK))).length;if(cnt!==lastCnt){lastCnt=cnt;$('#cnt').textContent=cnt}
+ fc++;if(now-ft>2000){fps=Math.round(fc*1000/(now-ft));fc=0;ft=now;
+  if(fps<18&&lvl<3){lvl++;good=0}else if(fps>28&&lvl>minLvl){if(++good>=3){lvl--;good=0}}else good=0}
+ const tr=[mods.face&&fl?'وجه':'',HL.length?'يدان':'',pl?'جسم':''].filter(Boolean).join(' · ');
+ stat((tr||'لا يوجد تتبع')+' · '+fps+' إطار/ث · '+del+(lvl>minLvl?' · وضع خفيف':'')+(CAL?' · معايَر':'')+(failed.length?' · تعذّر: '+failed.join('، '):''));
+}
+function loop(now){fn++;if(!document.hidden){step();render(now)}requestAnimationFrame(loop)}
+</script></body></html>
